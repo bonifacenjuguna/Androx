@@ -5,10 +5,7 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -81,16 +78,15 @@ fun rememberNotificationGate(): NotificationGate {
     if (gate.showRationale) {
         AlertDialog(
             onDismissRequest = { gate.skip() },
-            icon = { Icon(Icons.Filled.Notifications, contentDescription = null) },
-            title = { Text("Allow Androx to send notifications?") },
+            title = { Text("Allow notifications?") },
             text = {
                 Text(
-                    "This automation can show a notification. If you don't allow it, the automation still runs, " +
-                        "but the notification fails and the reason is recorded in History."
+                    "This automation can show a notification. Android needs your permission for that. " +
+                        "If you skip it, the automation will still run but the notification will fail and be logged in History."
                 )
             },
-            confirmButton = { TextButton(onClick = { gate.requestNow() }) { Text("Allow") } },
-            dismissButton = { TextButton(onClick = { gate.skip() }) { Text("Don't allow") } },
+            confirmButton = { TextButton(onClick = { gate.requestNow() }) { Text("Continue") } },
+            dismissButton = { TextButton(onClick = { gate.skip() }) { Text("Not now") } },
         )
     }
     return gate

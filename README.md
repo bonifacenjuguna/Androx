@@ -21,9 +21,3 @@ Templates in text fields: `{{battery}} {{time}} {{date}} {{automation}} {{yourVa
 
 ## JavaScript API
 `androx.log / notify / getVar / setVar / deleteVar / battery / isCharging / now`, plus `console.log`.
-
-## UI design system (v0.0.0 redesign)
-All screens are built from `ui/components/Design.kt` (list rows with icon tiles, switch rows, section labels, confirm dialogs, empty states,
-adaptive width) and `ui/components/Kinds.kt` (create / add-action bottom sheets). Navigation is a Material 3 bottom bar, or a navigation rail
-on screens 600dp+ wide. Screens use small top app bars, list-first layouts and tonal surfaces; cards are used only for repeated action blocks
-and workflow nodes. Palette is the Androx monochrome (see `ui/theme/Theme.kt`).
