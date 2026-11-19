@@ -55,7 +55,7 @@ object WorkflowCompiler {
         val chain = mutableListOf<WfNode>()
         if (triggerNode != null) {
             val visited = mutableSetOf(triggerNode.id)
-            var current = triggerNode
+            var current: WfNode = triggerNode
             while (true) {
                 val edge = graph.edges.firstOrNull { it.from == current.id } ?: break
                 val next = graph.nodes.firstOrNull { it.id == edge.to } ?: break
