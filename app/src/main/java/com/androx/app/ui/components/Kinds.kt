@@ -2,27 +2,21 @@
 
 package com.androx.app.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.clickable
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
@@ -43,44 +37,74 @@ fun kindLabel(kind: EditorKind): String = when (kind) {
     EditorKind.WORKFLOW -> "Workflow"
 }
 
+/** Icon for an action type. The index matches ElementEditors.newActionOfKind. */
 @Composable
-fun IconBadge(painter: Painter, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.secondaryContainer),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(painter, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(22.dp))
-    }
+fun actionIcon(index: Int): Painter = when (index) {
+    0 -> rememberVectorPainter(Icons.Filled.Notifications)
+    1 -> rememberVectorPainter(Icons.Filled.Edit)
+    2 -> rememberVectorPainter(Icons.Filled.PlayArrow)
+    3 -> rememberVectorPainter(Icons.AutoMirrored.Filled.List)
+    else -> painterResource(R.drawable.ic_code)
 }
+
+private val actionInfo = listOf(
+    "Show notification" to "Post a notification on this device",
+    "Set variable" to "Store or add to a value other automations can read",
+    "Run automation" to "Start another saved automation",
+    "Write to log" to "Add a line to this run's details in History",
+    "Run JavaScript" to "Use the androx scripting API",
+)
 
 /** Bottom sheet that lets the user pick one of the three ways to create an automation. */
 @Composable
 fun NewAutomationSheet(onPick: (EditorKind) -> Unit, onDismiss: () -> Unit) {
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(bottom = 16.dp)) {
             Text(
-                "New automation",
+                "Create automation",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
-            Option(EditorKind.BUILDER, "Builder", "Pick a trigger, an optional condition and actions. No code.", onPick)
-            Option(EditorKind.SCRIPT, "JavaScript", "Write a script against the Androx API.", onPick)
-            Option(EditorKind.WORKFLOW, "Visual workflow", "Place nodes on a canvas and connect them.", onPick)
+            PreferenceRow(
+                title = "Builder",
+                summary = "Choose a trigger, an optional condition and actions",
+                icon = kindIcon(EditorKind.BUILDER),
+                onClick = { onPick(EditorKind.BUILDER) },
+            )
+            PreferenceRow(
+                title = "JavaScript",
+                summary = "Write a script with the androx API",
+                icon = kindIcon(EditorKind.SCRIPT),
+                onClick = { onPick(EditorKind.SCRIPT) },
+            )
+            PreferenceRow(
+                title = "Visual workflow",
+                summary = "Place nodes on a canvas and connect them",
+                icon = kindIcon(EditorKind.WORKFLOW),
+                onClick = { onPick(EditorKind.WORKFLOW) },
+            )
         }
     }
 }
 
+/** Bottom sheet for choosing the type of a new action. [onPick] receives an index for newActionOfKind. */
 @Composable
-private fun Option(kind: EditorKind, title: String, description: String, onPick: (EditorKind) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(description) },
-        leadingContent = { IconBadge(kindIcon(kind)) },
-        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-        modifier = Modifier.clickable { onPick(kind) },
-    )
+fun AddActionSheet(onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.padding(bottom = 16.dp)) {
+            Text(
+                "Add action",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            actionInfo.forEachIndexed { index, (title, description) ->
+                PreferenceRow(
+                    title = title,
+                    summary = description,
+                    icon = actionIcon(index),
+                    onClick = { onPick(index) },
+                )
+            }
+        }
+    }
 }

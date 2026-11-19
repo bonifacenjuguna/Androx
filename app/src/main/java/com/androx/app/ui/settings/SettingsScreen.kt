@@ -4,33 +4,35 @@ package com.androx.app.ui.settings
 
 import android.os.Build
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,7 +46,6 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -54,18 +55,15 @@ import com.androx.app.R
 import com.androx.app.data.ThemeMode
 import com.androx.app.platform.Permissions
 import com.androx.app.ui.MainViewModel
-import com.androx.app.ui.components.AndroxMark
-import com.androx.app.ui.components.AndroxTopBar
-import com.androx.app.ui.components.RadioRow
-import com.androx.app.ui.components.SectionHeader
+import com.androx.app.ui.components.CenteredContent
+import com.androx.app.ui.components.ConfirmDialog
+import com.androx.app.ui.components.PreferenceRow
+import com.androx.app.ui.components.SectionLabel
+import com.androx.app.ui.components.SwitchRow
 import com.androx.app.ui.components.rememberNotificationGate
-import com.androx.app.ui.components.transparentListItemColors
+import com.androx.app.ui.components.transparentItemColors
 
-private fun themeLabel(mode: ThemeMode) = when (mode) {
-    ThemeMode.SYSTEM -> "System default"
-    ThemeMode.LIGHT -> "Light"
-    ThemeMode.DARK -> "Dark"
-}
+private val historyLimits = listOf(50, 100, 250, 500)
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
@@ -81,185 +79,186 @@ fun SettingsScreen(vm: MainViewModel) {
     var showLimit by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    val version = remember {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0.0.0"
+
+    val themeSummary = when (settings.themeMode) {
+        ThemeMode.SYSTEM -> "System default"
+        ThemeMode.LIGHT -> "Light"
+        ThemeMode.DARK -> "Dark"
     }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { AndroxTopBar("Settings", scroll) },
+        topBar = { TopAppBar(title = { Text("Settings") }, scrollBehavior = scroll) },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 24.dp),
-        ) {
-            item { SectionHeader("Appearance", Modifier.padding(top = 8.dp)) }
-            item {
-                PreferenceRow(
-                    title = "Theme",
-                    summary = themeLabel(settings.themeMode),
-                    onClick = { showTheme = true },
-                )
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        CenteredContent {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 16.dp),
+            ) {
+                item { SectionLabel("Appearance", Modifier.padding(top = 8.dp)) }
                 item {
-                    SwitchRow(
-                        title = "Dynamic colour",
-                        summary = "Use colours from your wallpaper instead of the Androx monochrome palette.",
-                        checked = settings.dynamicColor,
-                        onChange = { c -> vm.updateSettings { it.copy(dynamicColor = c) } },
+                    PreferenceRow(
+                        title = "Theme",
+                        summary = themeSummary,
+                        icon = painterResource(R.drawable.ic_appearance),
+                        onClick = { showTheme = true },
                     )
                 }
-            }
-            item {
-                SwitchRow(
-                    title = "Pure black dark theme",
-                    summary = "True black backgrounds in dark mode.",
-                    checked = settings.pureBlack,
-                    onChange = { c -> vm.updateSettings { it.copy(pureBlack = c) } },
-                )
-            }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    item {
+                        SwitchRow(
+                            title = "Dynamic colour",
+                            summary = "Use colours from your wallpaper instead of black and white",
+                            icon = painterResource(R.drawable.ic_palette),
+                            checked = settings.dynamicColor,
+                            onCheckedChange = { c -> vm.updateSettings { it.copy(dynamicColor = c) } },
+                        )
+                    }
+                }
+                item {
+                    SwitchRow(
+                        title = "Pure black",
+                        summary = "True black background in the dark theme",
+                        icon = painterResource(R.drawable.ic_dark_mode),
+                        checked = settings.pureBlack,
+                        onCheckedChange = { c -> vm.updateSettings { it.copy(pureBlack = c) } },
+                    )
+                }
 
-            item { Divided() }
-            item { SectionHeader("History and data") }
-            item {
-                PreferenceRow(
-                    title = "Keep last runs",
-                    summary = "${settings.historyLimit} records",
-                    onClick = { showLimit = true },
-                )
-            }
-            item {
-                PreferenceRow(
-                    title = "Variables",
-                    summary = if (variables.isEmpty()) "None stored yet" else "${variables.size} stored · shared by all automations",
-                    onClick = { showVariables = true },
-                )
-            }
-            item {
-                PreferenceRow(
-                    title = "Clear history",
-                    summary = "${history.size} records",
-                    onClick = if (history.isNotEmpty()) ({ confirmClear = true }) else null,
-                )
-            }
+                item { Divider() }
+                item { SectionLabel("Permissions") }
+                item {
+                    val needsPrompt = status.notificationsNeedRuntimePrompt && !gate.requestedOnce
+                    PermissionRow(
+                        title = "Notifications",
+                        icon = rememberVectorPainter(Icons.Filled.Notifications),
+                        granted = status.notificationsAllowed,
+                        grantedText = "Allowed",
+                        deniedText = "Not allowed",
+                        why = "Needed by “Show notification” and androx.notify().",
+                        actionLabel = if (needsPrompt) "Allow" else "Settings",
+                        showAction = !status.notificationsAllowed,
+                        onAction = {
+                            if (needsPrompt) gate.requestNow() else Permissions.openNotificationSettings(context)
+                        },
+                    )
+                }
+                item {
+                    PermissionRow(
+                        title = "Exact alarms",
+                        icon = painterResource(R.drawable.ic_schedule),
+                        granted = status.exactAlarmsAllowed,
+                        grantedText = if (status.exactAlarmsApply) "Allowed" else "Not restricted on this Android version",
+                        deniedText = "Not allowed. Scheduled runs may be late.",
+                        why = "Lets scheduled automations run at the exact minute.",
+                        actionLabel = "Settings",
+                        showAction = status.exactAlarmsApply && !status.exactAlarmsAllowed,
+                        onAction = { Permissions.openExactAlarmSettings(context) },
+                    )
+                }
+                item {
+                    PermissionRow(
+                        title = "Battery optimisation",
+                        icon = painterResource(R.drawable.ic_battery),
+                        granted = status.batteryUnrestricted,
+                        grantedText = "Unrestricted",
+                        deniedText = "Optimised. Android may postpone scheduled runs.",
+                        why = "Choose Unrestricted to reduce delays. Android still decides.",
+                        actionLabel = "Settings",
+                        showAction = !status.batteryUnrestricted,
+                        onAction = { Permissions.openBatterySettings(context) },
+                        warnWhenDenied = false,
+                    )
+                }
 
-            item { Divided() }
-            item { SectionHeader("Permissions") }
-            item {
-                val prompt = status.notificationsNeedRuntimePrompt && !gate.requestedOnce
-                PermissionRow(
-                    icon = rememberVectorPainter(Icons.Filled.Notifications),
-                    title = "Notifications",
-                    why = "Needed by the “Show notification” action and by scripts that call androx.notify().",
-                    granted = status.notificationsAllowed,
-                    hint = if (prompt) "Tap to allow" else "Tap to open settings",
-                    onClick = {
-                        if (prompt) gate.requestNow() else Permissions.openNotificationSettings(context)
-                    },
-                )
-            }
-            item {
-                PermissionRow(
-                    icon = painterResource(R.drawable.ic_schedule),
-                    title = "Exact alarms",
-                    why = if (status.exactAlarmsApply) "Lets scheduled automations run at the exact minute. Without it Android may delay them by several minutes."
-                    else "Not restricted on this version of Android.",
-                    granted = status.exactAlarmsAllowed,
-                    hint = if (status.exactAlarmsApply) "Tap to open settings" else null,
-                    onClick = { Permissions.openExactAlarmSettings(context) },
-                )
-            }
-            item {
-                PermissionRow(
-                    icon = painterResource(R.drawable.ic_battery),
-                    title = "Battery optimisation",
-                    why = "Scheduled runs can be postponed while the phone is idle. Choosing “Unrestricted” for Androx reduces that, but Android still decides.",
-                    granted = status.batteryUnrestricted,
-                    grantedLabel = "Unrestricted",
-                    deniedLabel = "Optimised",
-                    hint = "Tap to open settings",
-                    onClick = { Permissions.openBatterySettings(context) },
-                )
-            }
+                item { Divider() }
+                item { SectionLabel("History and data") }
+                item {
+                    PreferenceRow(
+                        title = "Keep last runs",
+                        summary = "${settings.historyLimit} records",
+                        icon = painterResource(R.drawable.ic_history),
+                        onClick = { showLimit = true },
+                    )
+                }
+                item {
+                    PreferenceRow(
+                        title = "Variables",
+                        summary = if (variables.isEmpty()) "None stored" else "${variables.size} stored, shared by all automations",
+                        icon = painterResource(R.drawable.ic_code),
+                        onClick = { showVariables = true },
+                    )
+                }
+                item {
+                    PreferenceRow(
+                        title = "Clear history",
+                        summary = if (history.isEmpty()) "Nothing to clear" else "${history.size} records",
+                        icon = rememberVectorPainter(Icons.Filled.Delete),
+                        onClick = { confirmClear = true },
+                        enabled = history.isNotEmpty(),
+                    )
+                }
 
-            item { Divided() }
-            item { SectionHeader("About") }
-            item {
-                ListItem(
-                    leadingContent = {
-                        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                            AndroxMark(Modifier.width(28.dp).height(14.dp))
-                        }
-                    },
-                    headlineContent = { Text("Androx") },
-                    supportingContent = {
-                        Text("Version $version\nJavaScript runs in an embedded Rhino interpreter that can only reach the androx API.")
-                    },
-                    colors = transparentListItemColors(),
-                )
+                item { Divider() }
+                item { SectionLabel("About") }
+                item {
+                    PreferenceRow(
+                        title = "Androx",
+                        summary = "Version 0.0.0",
+                        icon = rememberVectorPainter(Icons.Filled.Info),
+                    )
+                }
+                item {
+                    PreferenceRow(
+                        title = "JavaScript",
+                        summary = "Runs in an embedded Rhino interpreter that can only reach the androx API",
+                        icon = painterResource(R.drawable.ic_code),
+                    )
+                }
             }
         }
     }
 
     if (showTheme) {
-        AlertDialog(
-            onDismissRequest = { showTheme = false },
-            title = { Text("Theme") },
-            text = {
-                Column {
-                    ThemeMode.values().forEach { mode ->
-                        RadioRow(
-                            label = themeLabel(mode),
-                            selected = settings.themeMode == mode,
-                            onClick = { vm.updateSettings { it.copy(themeMode = mode) }; showTheme = false },
-                        )
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showTheme = false }) { Text("Cancel") } },
+        val modes = listOf(ThemeMode.SYSTEM to "System default", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark")
+        RadioDialog(
+            title = "Theme",
+            options = modes.map { it.second },
+            selectedIndex = modes.indexOfFirst { it.first == settings.themeMode },
+            onSelect = { index -> vm.updateSettings { it.copy(themeMode = modes[index].first) }; showTheme = false },
+            onDismiss = { showTheme = false },
         )
     }
-
     if (showLimit) {
-        AlertDialog(
-            onDismissRequest = { showLimit = false },
-            title = { Text("Keep last runs") },
-            text = {
-                Column {
-                    listOf(50, 100, 250, 500).forEach { n ->
-                        RadioRow(
-                            label = "$n records",
-                            selected = settings.historyLimit == n,
-                            onClick = { vm.setHistoryLimit(n); showLimit = false },
-                        )
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showLimit = false }) { Text("Cancel") } },
+        RadioDialog(
+            title = "Keep last runs",
+            options = historyLimits.map { "$it records" },
+            selectedIndex = historyLimits.indexOf(settings.historyLimit),
+            onSelect = { index -> vm.setHistoryLimit(historyLimits[index]); showLimit = false },
+            onDismiss = { showLimit = false },
         )
     }
-
     if (showVariables) {
         AlertDialog(
             onDismissRequest = { showVariables = false },
+            icon = { Icon(painterResource(R.drawable.ic_code), contentDescription = null) },
             title = { Text("Variables") },
             text = {
                 if (variables.isEmpty()) {
-                    Text("No variables yet. Actions and scripts create them with “Set variable” or androx.setVar().")
+                    Text("No variables yet. “Set variable” actions and androx.setVar() create them.")
                 } else {
                     LazyColumn(Modifier.heightIn(max = 360.dp)) {
-                        items(variables.entries.toList(), key = { it.key }) { (name, value) ->
+                        items(variables.entries.toList(), key = { it.key }) { entry ->
                             ListItem(
-                                headlineContent = { Text(name) },
-                                supportingContent = { Text(value.ifEmpty { "(empty)" }, fontFamily = FontFamily.Monospace) },
+                                headlineContent = { Text(entry.key) },
+                                supportingContent = { Text(entry.value.ifEmpty { "(empty)" }, fontFamily = FontFamily.Monospace) },
                                 trailingContent = {
-                                    IconButton(onClick = { vm.deleteVariable(name) }) {
-                                        Icon(Icons.Filled.Close, contentDescription = "Delete $name")
+                                    IconButton(onClick = { vm.deleteVariable(entry.key) }) {
+                                        Icon(Icons.Filled.Close, contentDescription = "Delete ${entry.key}")
                                     }
                                 },
-                                colors = transparentListItemColors(),
+                                colors = transparentItemColors(),
                             )
                         }
                     }
@@ -271,77 +270,85 @@ fun SettingsScreen(vm: MainViewModel) {
             },
         )
     }
-
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("Clear history?") },
-            text = { Text("All ${history.size} records will be removed.") },
-            confirmButton = {
-                TextButton(onClick = { vm.clearHistory(); confirmClear = false }) {
-                    Text("Clear", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
+        ConfirmDialog(
+            icon = rememberVectorPainter(Icons.Filled.Delete),
+            title = "Clear history?",
+            message = "All ${history.size} records will be removed. Your automations are not affected.",
+            confirmLabel = "Clear",
+            onConfirm = { vm.clearHistory(); confirmClear = false },
+            onDismiss = { confirmClear = false },
         )
     }
 }
 
 @Composable
-private fun Divided() {
-    HorizontalDivider(Modifier.padding(top = 8.dp))
-}
-
-/** A standard preference row: title, optional summary, whole row tappable. */
-@Composable
-private fun PreferenceRow(title: String, summary: String? = null, onClick: (() -> Unit)? = null) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = if (summary != null) ({ Text(summary) }) else null,
-        colors = transparentListItemColors(),
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
-    )
-}
-
-/** A switch preference. The whole row toggles, and the Switch itself is just the indicator (one touch target). */
-@Composable
-private fun SwitchRow(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(summary) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        colors = transparentListItemColors(),
-        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
-    )
+private fun Divider() {
+    HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
 private fun PermissionRow(
-    icon: Painter,
     title: String,
-    why: String,
+    icon: Painter,
     granted: Boolean,
-    hint: String?,
-    onClick: () -> Unit,
-    grantedLabel: String = "Allowed",
-    deniedLabel: String = "Not allowed",
+    grantedText: String,
+    deniedText: String,
+    why: String,
+    actionLabel: String,
+    showAction: Boolean,
+    onAction: () -> Unit,
+    warnWhenDenied: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
-    ListItem(
-        leadingContent = { Icon(icon, contentDescription = null, tint = scheme.onSurfaceVariant) },
-        headlineContent = { Text(title) },
-        supportingContent = {
+    Column {
+        PreferenceRow(
+            title = title,
+            icon = icon,
+            onClick = if (showAction) onAction else null,
+            trailing = if (showAction) ({ FilledTonalButton(onClick = onAction) { Text(actionLabel) } }) else null,
+        )
+        // Status and reason sit under the row, aligned with its text, so the row itself stays a one-line title.
+        Column(Modifier.padding(start = 72.dp, end = 16.dp, bottom = 8.dp)) {
+            Text(
+                if (granted) grantedText else deniedText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (!granted && warnWhenDenied) scheme.error else scheme.onSurface,
+            )
+            Text(why, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun RadioDialog(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
             Column {
-                Text(why)
-                Text(
-                    (if (granted) grantedLabel else deniedLabel) + if (hint != null) " · $hint" else "",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (granted) scheme.onSurface else scheme.error,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+                options.forEachIndexed { index, label ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { onSelect(index) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        RadioButton(selected = index == selectedIndex, onClick = null)
+                        Text(label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
             }
         },
-        colors = transparentListItemColors(),
-        modifier = if (hint != null) Modifier.clickable(onClick = onClick) else Modifier,
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }

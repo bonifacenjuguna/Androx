@@ -164,7 +164,6 @@ private fun ScheduleFields(trigger: Trigger.Schedule, onChange: (Trigger) -> Uni
                 }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { picking = false }) { Text("Cancel") } },
-            title = { Text("Select time") },
             text = { TimePicker(state = state) },
         )
     }

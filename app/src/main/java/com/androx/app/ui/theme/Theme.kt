@@ -88,8 +88,6 @@ private val AndroxDark: ColorScheme = darkColorScheme(
     inversePrimary = Charcoal,
 )
 
-// Stock Material 3 type scale (Roboto on Android). Nothing is overridden on purpose: system-standard sizes and weights
-// are what make the app read as part of Android.
 private val AndroxTypography = Typography()
 
 /** Monospace style for the script editor. */
