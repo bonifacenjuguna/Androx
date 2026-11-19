@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -157,7 +156,7 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                 },
         ) {
             // Dot grid that moves with the canvas.
-            Canvas(Modifier.matchParentSize()) {
+            Canvas(Modifier.fillMaxSize()) {
                 val step = 28.dp.toPx()
                 val ox = ((pan.x % step) + step) % step
                 val oy = ((pan.y % step) + step) % step
@@ -172,7 +171,7 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                 }
             }
             Box(Modifier.offset { IntOffset(pan.x.roundToInt(), pan.y.roundToInt()) }.requiredSize(CanvasSize)) {
-                Canvas(Modifier.matchParentSize()) {
+                Canvas(Modifier.fillMaxSize()) {
                     val byId = graph.nodes.associateBy { it.id }
                     val w = NodeW.toPx()
                     val h = NodeH.toPx()
