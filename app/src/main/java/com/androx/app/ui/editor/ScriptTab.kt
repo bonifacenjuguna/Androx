@@ -2,58 +2,91 @@
 
 package com.androx.app.ui.editor
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.androx.app.R
 import com.androx.app.engine.ScriptApiDocs
 import com.androx.app.model.Action
+import com.androx.app.ui.components.CenteredContent
 import com.androx.app.ui.components.EmptyState
+import com.androx.app.ui.components.transparentItemColors
 import com.androx.app.ui.theme.CodeTextStyle
-import androidx.compose.ui.res.painterResource
-import com.androx.app.R
 
 private val snippets = listOf(
     "Notify" to "androx.notify(\"Title\", \"Message\");\n",
     "Counter" to "const n = Number(androx.getVar(\"count\") || 0) + 1;\nandrox.setVar(\"count\", n);\nandrox.log(\"count is \" + n);\n",
     "Battery check" to "if (androx.battery() < 20 && !androx.isCharging()) {\n  androx.notify(\"Low battery\", androx.battery() + \"% left\");\n}\n",
     "Read a variable" to "const value = androx.getVar(\"name\");\nandrox.log(value === null ? \"not set\" : value);\n",
+)
+
+/** A key on the symbol bar: what it shows, what it inserts and how far to move the caret back afterwards. */
+private class Symbol(val label: String, val text: String = label, val back: Int = 0)
+
+private val symbols = listOf(
+    Symbol("⇥", "  "),
+    Symbol("( )", "()", 1),
+    Symbol("{ }", "{}", 1),
+    Symbol("[ ]", "[]", 1),
+    Symbol("\" \"", "\"\"", 1),
+    Symbol("' '", "''", 1),
+    Symbol(";"),
+    Symbol("."),
+    Symbol(","),
+    Symbol("="),
+    Symbol("+"),
+    Symbol("!"),
+    Symbol("&&"),
+    Symbol("||"),
+    Symbol("=>"),
 )
 
 private val TOKEN = Regex(
@@ -88,104 +121,138 @@ private class JsHighlighter(
 @Composable
 fun ScriptTab(vm: EditorViewModel) {
     val index = vm.scriptIndex
-    var showApi by remember { mutableStateOf(false) }
-    var snippetMenu by remember { mutableStateOf(false) }
-
     if (index < 0) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxSize()) {
             EmptyState(
                 icon = painterResource(R.drawable.ic_code),
-                title = "No script in this automation",
+                title = "No script yet",
                 message = "Add a JavaScript action. It runs together with the other actions, in order.",
+                modifier = Modifier.align(Alignment.Center),
             ) {
                 Button(onClick = { vm.addAction(Action.RunScript()) }) { Text("Add script") }
             }
         }
         return
     }
-    val script = vm.actions[index] as Action.RunScript
+    val source = (vm.actions[index] as Action.RunScript).source
     val scheme = MaterialTheme.colorScheme
+    var showApi by remember { mutableStateOf(false) }
+    var snippetMenu by remember { mutableStateOf(false) }
+
+    // The editor keeps its own TextFieldValue (caret and IME state); it is resynced when the script changes elsewhere.
+    var editorValue by remember { mutableStateOf(TextFieldValue(source, TextRange(source.length))) }
+    LaunchedEffect(source) {
+        if (editorValue.text != source) editorValue = TextFieldValue(source, TextRange(source.length))
+    }
+    fun insert(text: String, back: Int = 0) {
+        val start = editorValue.selection.min
+        val end = editorValue.selection.max
+        val updated = editorValue.text.replaceRange(start, end, text)
+        editorValue = TextFieldValue(updated, TextRange(start + text.length - back))
+        vm.setScript(updated)
+    }
+
     val highlighter = remember(scheme) {
         JsHighlighter(
             comment = scheme.outline,
-            string = scheme.onSurface.copy(alpha = 0.75f),
+            string = scheme.onSurface.copy(alpha = 0.72f),
             keyword = scheme.primary,
             builtin = scheme.tertiary,
             number = scheme.secondary,
         )
     }
 
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Card(colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow)) {
+    CenteredContent {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box {
+                    AssistChip(
+                        onClick = { snippetMenu = true },
+                        label = { Text("Snippets") },
+                        leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    )
+                    DropdownMenu(expanded = snippetMenu, onDismissRequest = { snippetMenu = false }) {
+                        snippets.forEach { (title, code) ->
+                            DropdownMenuItem(
+                                text = { Text(title) },
+                                onClick = {
+                                    snippetMenu = false
+                                    val base = if (editorValue.text.isEmpty() || editorValue.text.endsWith("\n")) editorValue.text else editorValue.text + "\n"
+                                    vm.setScript(base + code)
+                                },
+                            )
+                        }
+                    }
+                }
+                AssistChip(onClick = { showApi = true }, label = { Text("API reference") })
+            }
             Text(
-                "Runs in an embedded JavaScript interpreter (Rhino) with only the androx API. " +
-                    "No network, files or Android classes are reachable. Scripts stop after 5 seconds.",
-                style = MaterialTheme.typography.bodySmall,
+                if (vm.actions.size > 1) {
+                    "Rhino · androx API only · stops after 5 s. ${vm.actions.size - 1} other action${if (vm.actions.size == 2) "" else "s"} run in order; edit them in the Builder."
+                } else {
+                    "Rhino · androx API only · stops after 5 s"
+                },
+                style = MaterialTheme.typography.labelMedium,
                 color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp),
             )
-        }
-        if (vm.actions.size > 1) {
-            Text(
-                "This automation has ${vm.actions.size - 1} other action${if (vm.actions.size == 2) "" else "s"}. " +
-                    "They stay as they are and run in order; edit them in the Builder.",
-                style = MaterialTheme.typography.bodySmall,
-                color = scheme.onSurfaceVariant,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box {
-                AssistChip(
-                    onClick = { snippetMenu = true },
-                    label = { Text("Insert snippet") },
-                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                )
-                DropdownMenu(expanded = snippetMenu, onDismissRequest = { snippetMenu = false }) {
-                    snippets.forEach { (title, code) ->
-                        DropdownMenuItem(
-                            text = { Text(title) },
-                            onClick = {
-                                snippetMenu = false
-                                val base = if (script.source.isEmpty() || script.source.endsWith("\n")) script.source else script.source + "\n"
-                                vm.setScript(base + code)
-                            },
-                        )
+            Surface(
+                color = scheme.surfaceContainerLowest,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
+            ) {
+                Box(Modifier.verticalScroll(rememberScrollState()).padding(14.dp)) {
+                    BasicTextField(
+                        value = editorValue,
+                        onValueChange = { value ->
+                            editorValue = value
+                            vm.setScript(value.text)
+                        },
+                        textStyle = CodeTextStyle.copy(color = scheme.onSurface),
+                        cursorBrush = SolidColor(scheme.primary),
+                        visualTransformation = highlighter,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, keyboardType = KeyboardType.Ascii),
+                        modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 240.dp),
+                    )
+                }
+            }
+            // Symbols that are awkward to reach on a phone keyboard.
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+            ) {
+                symbols.forEach { key ->
+                    TextButton(onClick = { insert(key.text, key.back) }) {
+                        Text(key.label, style = CodeTextStyle, color = scheme.onSurface)
                     }
                 }
             }
-            AssistChip(onClick = { showApi = true }, label = { Text("API reference") })
         }
-        OutlinedTextField(
-            value = script.source,
-            onValueChange = { vm.setScript(it) },
-            label = { Text("Script") },
-            textStyle = CodeTextStyle,
-            visualTransformation = highlighter,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp),
-        )
     }
 
     if (showApi) {
         ModalBottomSheet(onDismissRequest = { showApi = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-            Column(
-                Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Androx scripting API", style = MaterialTheme.typography.titleLarge)
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+                Text(
+                    "Androx scripting API",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
                 ScriptApiDocs.entries.forEach { entry ->
-                    Column {
-                        Text(entry.signature, style = CodeTextStyle.copy(fontFamily = FontFamily.Monospace), color = scheme.primary)
-                        Text(entry.description, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
-                    }
+                    ListItem(
+                        headlineContent = { Text(entry.signature, style = CodeTextStyle, color = scheme.primary) },
+                        supportingContent = { Text(entry.description) },
+                        colors = transparentItemColors(),
+                    )
                 }
                 Text(
-                    "Variables are shared by every automation and are always text. A script that throws, or a notification Android blocks, " +
-                        "is recorded as a failed run in History.",
+                    "Variables are shared by every automation and are always text. A script that throws, or a notification Android blocks, is recorded as a failed run in History.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
         }

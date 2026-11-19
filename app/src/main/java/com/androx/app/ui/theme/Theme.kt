@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 // Androx brand palette: black, white, charcoal, greys and silver. Red is kept only for errors.
@@ -89,13 +88,7 @@ private val AndroxDark: ColorScheme = darkColorScheme(
     inversePrimary = Charcoal,
 )
 
-private val AndroxTypography = Typography().let { base ->
-    base.copy(
-        headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = (-0.25).sp),
-        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-    )
-}
+private val AndroxTypography = Typography()
 
 /** Monospace style for the script editor. */
 val CodeTextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp)

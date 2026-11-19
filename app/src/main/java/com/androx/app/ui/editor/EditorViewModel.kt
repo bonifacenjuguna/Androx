@@ -262,6 +262,15 @@ class EditorViewModel(
         }
     }
 
+    /** Deletes this automation (only meaningful once saved) and then calls [onDone]. */
+    fun delete(onDone: () -> Unit) {
+        container.scope.launch {
+            container.automations.delete(id)
+            dirty = false
+            onDone()
+        }
+    }
+
     /** True if running this automation would try to show a notification. */
     fun needsNotifications(): Boolean = actions.any { it is Action.ShowNotification || it is Action.RunScript || it is Action.RunAutomation }
 }

@@ -15,14 +15,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -32,8 +30,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -49,20 +45,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.androx.app.R
@@ -72,18 +70,20 @@ import com.androx.app.model.WfNode
 import com.androx.app.model.WorkflowCompiler
 import com.androx.app.model.label
 import com.androx.app.model.summary
+import com.androx.app.ui.components.AddActionSheet
+import com.androx.app.ui.components.IconTile
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private val NodeW = 188.dp
-private val NodeH = 76.dp
+private val NodeW = 196.dp
+private val NodeH = 72.dp
 private val PortArea = 40.dp
 private val CanvasSize = 1600.dp
 
 /**
- * A small node editor. The chain is Trigger → (Condition) → Actions. Drag nodes to move them; tap the dot under a node
- * and then the dot above another node to connect them. Nodes that are not connected to the trigger are kept but don't run.
+ * A small node editor. The chain is Trigger → (Condition) → Actions. Drag nodes to move them, drag the background to pan,
+ * tap the dot under a node and then the dot above another to connect. Nodes not connected to the trigger are kept but don't run.
  */
 @Composable
 fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
@@ -92,13 +92,13 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
     var pan by remember { mutableStateOf(Offset.Zero) }
     var connectFrom by remember { mutableStateOf<String?>(null) }
     var selectedId by remember { mutableStateOf<String?>(null) }
-    var addMenu by remember { mutableStateOf(false) }
+    var addSheet by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val scheme = MaterialTheme.colorScheme
     val hasCondition = graph.nodes.any { it.element is NodeElement.ConditionNode }
-    val lineColor = scheme.primary
-    val dimLine = scheme.outline
-    val dotColor = scheme.outlineVariant
+    val liveLine = scheme.onSurfaceVariant
+    val deadLine = scheme.outlineVariant
+    val dotColor = scheme.outlineVariant.copy(alpha = 0.6f)
     val others = vm.otherAutomations
 
     Column(Modifier.fillMaxSize()) {
@@ -112,30 +112,24 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                 label = { Text("Condition") },
                 leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
             )
-            Box {
-                AssistChip(
-                    onClick = { addMenu = true },
-                    label = { Text("Action") },
-                    leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                )
-                DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                    actionKindLabels.forEachIndexed { index, label ->
-                        DropdownMenuItem(text = { Text(label) }, onClick = { addMenu = false; vm.addActionNode(newActionOfKind(index)) })
-                    }
-                }
-            }
-            AssistChip(onClick = { vm.tidy(); pan = Offset.Zero }, label = { Text("Tidy") })
+            AssistChip(
+                onClick = { addSheet = true },
+                label = { Text("Action") },
+                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            )
+            AssistChip(onClick = { vm.tidy(); pan = Offset.Zero }, label = { Text("Tidy up") })
         }
         Text(
-            if (connectFrom == null) "Drag to move. Tap the dot under a node, then the dot above another one to connect."
+            if (connectFrom == null) "Drag nodes to move them. Tap the dot under a node, then the dot above another to connect."
             else "Now tap the dot above the node to connect to. Tap the same dot again to cancel.",
             style = MaterialTheme.typography.labelMedium,
             color = scheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         if (compiled.orphanIds.isNotEmpty()) {
+            val n = compiled.orphanIds.size
             Text(
-                "${compiled.orphanIds.size} unconnected node${if (compiled.orphanIds.size == 1) "" else "s"} won't run, but ${if (compiled.orphanIds.size == 1) "is" else "are"} kept.",
+                "$n unconnected node${if (n == 1) "" else "s"} won't run, but ${if (n == 1) "is" else "are"} kept.",
                 style = MaterialTheme.typography.labelMedium,
                 color = scheme.error,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -147,7 +141,7 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                 .weight(1f)
                 .fillMaxWidth()
                 .clipToBounds()
-                .background(scheme.surfaceContainerLow)
+                .background(scheme.surfaceContainerLowest)
                 .pointerInput(Unit) {
                     detectDragGestures { change, drag ->
                         change.consume()
@@ -170,7 +164,17 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                     x += step
                 }
             }
-            Box(Modifier.offset { IntOffset(pan.x.roundToInt(), pan.y.roundToInt()) }.requiredSize(CanvasSize)) {
+            // The canvas content is measured at a fixed large size and placed from the top-left at the pan offset.
+            // (requiredSize would centre an oversized child, which pushed every node out of view.)
+            Box(
+                Modifier.layout { measurable, constraints ->
+                    val side = CanvasSize.roundToPx()
+                    val placeable = measurable.measure(Constraints.fixed(side, side))
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        placeable.place(IntOffset(pan.x.roundToInt(), pan.y.roundToInt()))
+                    }
+                },
+            ) {
                 Canvas(Modifier.fillMaxSize()) {
                     val byId = graph.nodes.associateBy { it.id }
                     val w = NodeW.toPx()
@@ -186,7 +190,7 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                             cubicTo(start.x, start.y + dy, end.x, end.y - dy, end.x, end.y)
                         }
                         val live = edge.from in compiled.connectedIds && edge.to in compiled.connectedIds
-                        drawPath(path, color = if (live) lineColor else dimLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+                        drawPath(path, color = if (live) liveLine else deadLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
                     }
                 }
                 graph.nodes.forEach { node ->
@@ -222,6 +226,13 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
                 }
             }
         }
+    }
+
+    if (addSheet) {
+        AddActionSheet(
+            onPick = { index -> addSheet = false; vm.addActionNode(newActionOfKind(index)) },
+            onDismiss = { addSheet = false },
+        )
     }
 
     val id = selectedId
@@ -266,7 +277,9 @@ private fun NodeSheet(vm: EditorViewModel, node: WfNode, others: List<Automation
                 TextButton(onClick = { vm.disconnectOutgoing(node.id) }) { Text("Disconnect next") }
             }
             if (node.element !is NodeElement.TriggerNode) {
-                TextButton(onClick = { vm.deleteNode(node.id); onDone() }) { Text("Delete node") }
+                TextButton(onClick = { vm.deleteNode(node.id); onDone() }) {
+                    Text("Delete node", color = MaterialTheme.colorScheme.error)
+                }
             }
         }
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") }
@@ -289,11 +302,6 @@ private fun NodeCard(
     val title: String
     val subtitle: String
     val icon: Painter
-    val container = when (element) {
-        is NodeElement.TriggerNode -> scheme.primaryContainer
-        is NodeElement.ConditionNode -> scheme.secondaryContainer
-        is NodeElement.ActionNode -> scheme.surfaceContainerHigh
-    }
     when (element) {
         is NodeElement.TriggerNode -> {
             title = "Trigger"; subtitle = element.trigger.summary(); icon = painterResource(R.drawable.ic_bolt)
@@ -325,18 +333,19 @@ private fun NodeCard(
                         onDrag(drag.x, drag.y)
                     }
                 },
-            colors = CardDefaults.cardColors(containerColor = container),
-            border = if (isSource) BorderStroke(2.dp, scheme.primary) else null,
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerHigh),
+            border = if (isSource) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant),
         ) {
             Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
-                Column(Modifier.padding(start = 10.dp)) {
-                    Text(title, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconTile(icon)
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        if (live) subtitle.ifBlank { "—" } else "Not connected",
+                        if (live) subtitle.ifBlank { "No details" } else "Not connected",
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -346,14 +355,14 @@ private fun NodeCard(
             Port(
                 Modifier.align(Alignment.TopCenter),
                 filled = connecting && !isSource,
-                description = "Connect into ${title}",
+                description = "Connect into $title",
                 onClick = onInPort,
             )
         }
         Port(
             Modifier.align(Alignment.BottomCenter),
             filled = isSource,
-            description = "Connect from ${title}",
+            description = "Connect from $title",
             onClick = onOutPort,
         )
     }

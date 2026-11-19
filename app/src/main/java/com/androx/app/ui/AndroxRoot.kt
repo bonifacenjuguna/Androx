@@ -11,16 +11,22 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -31,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,6 +58,7 @@ import com.androx.app.ui.editor.EditorScreen
 import com.androx.app.ui.editor.EditorViewModel
 import com.androx.app.ui.history.HistoryScreen
 import com.androx.app.ui.home.HomeScreen
+import com.androx.app.ui.components.rememberIsWide
 import com.androx.app.ui.settings.SettingsScreen
 
 private enum class Tab(val route: String, val label: String) {
@@ -89,13 +97,15 @@ fun AndroxRoot(container: AppContainer) {
 
     fun openEditor(id: String?, kind: EditorKind) = navController.navigate(editorRoute(id, kind))
 
+    val wide = rememberIsWide()
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             AnimatedVisibility(
-                visible = showBar,
+                visible = showBar && !wide,
                 enter = fadeIn(tween(160)) + expandVertically(tween(200)),
                 exit = fadeOut(tween(120)) + shrinkVertically(tween(160)),
             ) {
@@ -104,7 +114,7 @@ fun AndroxRoot(container: AppContainer) {
                         NavigationBarItem(
                             selected = route == tab.route,
                             onClick = { openTab(tab) },
-                            icon = { Icon(tabIcon(tab), contentDescription = null) },
+                            icon = { Icon(tabIcon(tab, route == tab.route), contentDescription = null) },
                             label = { Text(tab.label) },
                         )
                     }
@@ -112,58 +122,75 @@ fun AndroxRoot(container: AppContainer) {
             }
         },
     ) { padding ->
-        NavHost(
-            navController = navController,
-            startDestination = Tab.HOME.route,
-            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
-            enterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)) },
-            exitTransition = { fadeOut(tween(120)) },
-            popEnterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)) },
-            popExitTransition = { fadeOut(tween(120)) },
-        ) {
-            composable(Tab.HOME.route) {
-                HomeScreen(
-                    vm = mainVm,
-                    onCreate = { kind -> openEditor(null, kind) },
-                    onOpenHistory = { openTab(Tab.HISTORY) },
-                )
+        Row(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
+            if (showBar && wide) {
+                NavigationRail {
+                    Tab.values().forEach { tab ->
+                        NavigationRailItem(
+                            selected = route == tab.route,
+                            onClick = { openTab(tab) },
+                            icon = { Icon(tabIcon(tab, route == tab.route), contentDescription = null) },
+                            label = { Text(tab.label) },
+                        )
+                    }
+                }
             }
-            composable(Tab.AUTOMATIONS.route) {
-                AutomationsScreen(
-                    vm = mainVm,
-                    onCreate = { kind -> openEditor(null, kind) },
-                    onEdit = { automation -> openEditor(automation.id, automation.editor) },
-                )
-            }
-            composable(Tab.HISTORY.route) { HistoryScreen(vm = mainVm) }
-            composable(Tab.SETTINGS.route) { SettingsScreen(vm = mainVm) }
-            composable(
-                route = EDITOR_ROUTE,
-                arguments = listOf(
-                    navArgument("id") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("kind") { type = NavType.StringType; defaultValue = EditorKind.BUILDER.name },
-                ),
-                enterTransition = { slideInVertically(tween(260)) { it / 10 } + fadeIn(tween(220)) },
+            NavHost(
+                navController = navController,
+                startDestination = Tab.HOME.route,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                enterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)) },
                 exitTransition = { fadeOut(tween(120)) },
-                popEnterTransition = { fadeIn(tween(200)) },
-                popExitTransition = { slideOutVertically(tween(200)) { it / 10 } + fadeOut(tween(160)) },
-            ) { entry ->
-                val id = entry.arguments?.getString("id").orEmpty().ifBlank { null }
-                val kind = runCatching { EditorKind.valueOf(entry.arguments?.getString("kind").orEmpty()) }
-                    .getOrDefault(EditorKind.BUILDER)
-                val editorVm: EditorViewModel = viewModel(
-                    factory = viewModelFactory { initializer { EditorViewModel(container, id, kind) } }
-                )
-                EditorScreen(vm = editorVm, onClose = { navController.popBackStack() })
+                popEnterTransition = { fadeIn(tween(220)) + scaleIn(initialScale = 0.97f, animationSpec = tween(220)) },
+                popExitTransition = { fadeOut(tween(120)) },
+            ) {
+                composable(Tab.HOME.route) {
+                    HomeScreen(
+                        vm = mainVm,
+                        onCreate = { kind -> openEditor(null, kind) },
+                        onEdit = { automation -> openEditor(automation.id, automation.editor) },
+                        onOpenAutomations = { openTab(Tab.AUTOMATIONS) },
+                        onOpenHistory = { openTab(Tab.HISTORY) },
+                        onOpenSettings = { openTab(Tab.SETTINGS) },
+                    )
+                }
+                composable(Tab.AUTOMATIONS.route) {
+                    AutomationsScreen(
+                        vm = mainVm,
+                        onCreate = { kind -> openEditor(null, kind) },
+                        onEdit = { automation -> openEditor(automation.id, automation.editor) },
+                    )
+                }
+                composable(Tab.HISTORY.route) { HistoryScreen(vm = mainVm) }
+                composable(Tab.SETTINGS.route) { SettingsScreen(vm = mainVm) }
+                composable(
+                    route = EDITOR_ROUTE,
+                    arguments = listOf(
+                        navArgument("id") { type = NavType.StringType; defaultValue = "" },
+                        navArgument("kind") { type = NavType.StringType; defaultValue = EditorKind.BUILDER.name },
+                    ),
+                    enterTransition = { slideInVertically(tween(260)) { it / 10 } + fadeIn(tween(220)) },
+                    exitTransition = { fadeOut(tween(120)) },
+                    popEnterTransition = { fadeIn(tween(200)) },
+                    popExitTransition = { slideOutVertically(tween(200)) { it / 10 } + fadeOut(tween(160)) },
+                ) { entry ->
+                    val id = entry.arguments?.getString("id").orEmpty().ifBlank { null }
+                    val kind = runCatching { EditorKind.valueOf(entry.arguments?.getString("kind").orEmpty()) }
+                        .getOrDefault(EditorKind.BUILDER)
+                    val editorVm: EditorViewModel = viewModel(
+                        factory = viewModelFactory { initializer { EditorViewModel(container, id, kind) } }
+                    )
+                    EditorScreen(vm = editorVm, onClose = { navController.popBackStack() })
+                }
             }
         }
     }
 }
 
 @Composable
-private fun tabIcon(tab: Tab): Painter = when (tab) {
-    Tab.HOME -> androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Filled.Home)
+private fun tabIcon(tab: Tab, selected: Boolean): Painter = when (tab) {
+    Tab.HOME -> rememberVectorPainter(if (selected) Icons.Filled.Home else Icons.Outlined.Home)
     Tab.AUTOMATIONS -> painterResource(R.drawable.ic_bolt)
     Tab.HISTORY -> painterResource(R.drawable.ic_history)
-    Tab.SETTINGS -> androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Filled.Settings)
+    Tab.SETTINGS -> rememberVectorPainter(if (selected) Icons.Filled.Settings else Icons.Outlined.Settings)
 }
