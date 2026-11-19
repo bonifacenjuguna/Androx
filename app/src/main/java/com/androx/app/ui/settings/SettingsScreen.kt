@@ -56,7 +56,8 @@ import com.androx.app.ui.MainViewModel
 import com.androx.app.ui.components.SectionHeader
 import com.androx.app.ui.components.rememberNotificationGate
 
-private val transparent = ListItemDefaults.colors(containerColor = Color.Transparent)
+@Composable
+private fun transparentListItemColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
@@ -105,7 +106,7 @@ fun SettingsScreen(vm: MainViewModel) {
                         trailingContent = {
                             Switch(checked = settings.dynamicColor, onCheckedChange = { c -> vm.updateSettings { it.copy(dynamicColor = c) } })
                         },
-                        colors = transparent,
+                        colors = transparentListItemColors(),
                     )
                 }
             }
@@ -116,7 +117,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     trailingContent = {
                         Switch(checked = settings.pureBlack, onCheckedChange = { c -> vm.updateSettings { it.copy(pureBlack = c) } })
                     },
-                    colors = transparent,
+                    colors = transparentListItemColors(),
                 )
             }
 
@@ -125,7 +126,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 ListItem(
                     headlineContent = { Text("Keep last runs") },
                     supportingContent = { Text("${settings.historyLimit} records") },
-                    colors = transparent,
+                    colors = transparentListItemColors(),
                     modifier = Modifier.clickable { showLimit = true },
                 )
             }
@@ -133,7 +134,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 ListItem(
                     headlineContent = { Text("Variables") },
                     supportingContent = { Text(if (variables.isEmpty()) "None stored yet" else "${variables.size} stored · shared by all automations") },
-                    colors = transparent,
+                    colors = transparentListItemColors(),
                     modifier = Modifier.clickable { showVariables = true },
                 )
             }
@@ -141,7 +142,7 @@ fun SettingsScreen(vm: MainViewModel) {
                 ListItem(
                     headlineContent = { Text("Clear history") },
                     supportingContent = { Text("${history.size} records") },
-                    colors = transparent,
+                    colors = transparentListItemColors(),
                     modifier = Modifier.clickable(enabled = history.isNotEmpty()) { confirmClear = true },
                 )
             }
@@ -188,7 +189,7 @@ fun SettingsScreen(vm: MainViewModel) {
                     supportingContent = {
                         Text("Version 0.0.0\nJavaScript runs in an embedded Rhino interpreter that can only reach the androx API.")
                     },
-                    colors = transparent,
+                    colors = transparentListItemColors(),
                 )
             }
         }
@@ -233,7 +234,7 @@ fun SettingsScreen(vm: MainViewModel) {
                                         Icon(Icons.Filled.Close, contentDescription = "Delete $name")
                                     }
                                 },
-                                colors = transparent,
+                                colors = transparentListItemColors(),
                             )
                         }
                     }
@@ -291,6 +292,6 @@ private fun PermissionRow(
         trailingContent = {
             if (action != null && (!granted || action == "Open settings")) TextButton(onClick = onAction) { Text(action) }
         },
-        colors = transparent,
+        colors = transparentListItemColors(),
     )
 }
