@@ -84,37 +84,6 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun EmptyState(
-    icon: Painter,
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actions: @Composable () -> Unit = {},
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.outline)
-        Spacer(Modifier.height(8.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(8.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            actions()
-        }
-    }
-}
-
-@Composable
 fun AndroxMark(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.onSurface) {
     Icon(painterResource(R.drawable.ic_androx_mark), contentDescription = "Androx", modifier = modifier, tint = tint)
 }
