@@ -2,31 +2,33 @@
 
 package com.androx.app.ui.home
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,32 +41,49 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.androx.app.R
 import com.androx.app.model.Automation
 import com.androx.app.model.EditorKind
-import com.androx.app.model.Trigger
+import com.androx.app.model.ExecutionStatus
+import com.androx.app.model.isTimed
+import com.androx.app.model.nextFire
 import com.androx.app.model.summary
+import com.androx.app.platform.Permissions
+import com.androx.app.samples.Ideas
 import com.androx.app.ui.MainViewModel
-import com.androx.app.ui.components.AndroxMark
+import com.androx.app.ui.components.ActivityBars
+import com.androx.app.ui.components.AndroxWordmark
 import com.androx.app.ui.components.CenteredContent
-import com.androx.app.ui.components.EmptyState
 import com.androx.app.ui.components.IconTile
+import com.androx.app.ui.components.InfoBanner
+import com.androx.app.ui.components.LocalHaptics
 import com.androx.app.ui.components.NewAutomationSheet
-import com.androx.app.ui.components.PreferenceRow
-import com.androx.app.ui.components.SectionLabel
+import com.androx.app.ui.components.SectionHeader
+import com.androx.app.ui.components.StatTile
+import com.androx.app.ui.components.TonalCard
+import com.androx.app.ui.components.automationIconChoices
+import com.androx.app.ui.components.automationIconRes
+import com.androx.app.ui.components.formatCountdown
 import com.androx.app.ui.components.formatTimestamp
-import com.androx.app.ui.components.kindIcon
+import com.androx.app.ui.components.greeting
 import com.androx.app.ui.components.mayNotify
 import com.androx.app.ui.components.rememberNotificationGate
-import com.androx.app.ui.components.transparentItemColors
 import com.androx.app.ui.history.RunRow
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
 
-/** Home is a short, list-first overview: what is on, what runs next, what just happened. */
+/** Home is an at-a-glance dashboard: what's next, how things are going, quick runs and ideas. */
 @Composable
 fun HomeScreen(
     vm: MainViewModel,
@@ -73,39 +92,56 @@ fun HomeScreen(
     onOpenAutomations: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTemplates: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val haptics = LocalHaptics.current
     val automations by vm.automations.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
     var showSheet by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    var permissions by remember { mutableStateOf(Permissions.status(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissions = Permissions.status(context) }
     val gate = rememberNotificationGate()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
 
-    val enabled = automations.filter { it.enabled }
+    val zone = ZoneId.systemDefault()
     val now = System.currentTimeMillis()
+    val enabled = automations.filter { it.enabled }
     val next = enabled
-        .filter { it.trigger is Trigger.Schedule }
-        .map { it to (it.trigger as Trigger.Schedule).nextRunMillis(now) }
+        .mapNotNull { a -> a.trigger.nextFire(now)?.let { a to it } }
         .minByOrNull { it.second }
+    val startOfToday = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+    val runsToday = history.count { it.startedAt >= startOfToday }
+    val weekAgo = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+    val lastWeek = history.filter { it.startedAt >= weekAgo }
+    val finished = lastWeek.filter { it.status != ExecutionStatus.SKIPPED }
+    val successRate = if (finished.isEmpty()) null else finished.count { it.status == ExecutionStatus.SUCCESS } * 100 / finished.size
+    val failedWeek = lastWeek.count { it.status == ExecutionStatus.FAILED }
+    val days = (6 downTo 0).map { LocalDate.now(zone).minusDays(it.toLong()) }
+    val perDay = days.map { day ->
+        val from = day.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        history.count { it.startedAt in from until to }
+    }
+    val dayLabels = days.map { it.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) }
+
+    val needsNotifications = enabled.any { it.mayNotify() }
+    val needsExact = enabled.any { it.trigger.isTimed() }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AndroxMark(Modifier.width(30.dp).height(15.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("Androx")
-                    }
-                },
+                title = { AndroxWordmark(height = 22.dp) },
                 actions = {
                     Box {
                         IconButton(onClick = { menu = true }) {
                             Icon(Icons.Filled.MoreVert, contentDescription = "More options")
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text("Browse ideas") }, onClick = { menu = false; onOpenTemplates() })
                             DropdownMenuItem(text = { Text("Add sample automations") }, onClick = { menu = false; vm.addSamples() })
                             DropdownMenuItem(text = { Text("Settings") }, onClick = { menu = false; onOpenSettings() })
                         }
@@ -116,107 +152,152 @@ fun HomeScreen(
         },
     ) { padding ->
         CenteredContent {
-            if (automations.isEmpty()) {
-                EmptyState(
-                    icon = painterResource(R.drawable.ic_bolt),
-                    title = "No automations yet",
-                    message = "Automations run on this device and nothing leaves it. Create one with the Builder, JavaScript or a visual workflow.",
-                    modifier = Modifier.align(Alignment.Center),
-                ) {
-                    Button(onClick = { showSheet = true }) { Text("Create automation") }
-                    TextButton(onClick = { vm.addSamples() }) { Text("Add sample automations") }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                        Text(greeting(LocalDateTime.now().hour), style = MaterialTheme.typography.headlineMedium)
+                        Text(
+                            when {
+                                automations.isEmpty() -> "Let's set up your first automation."
+                                else -> "${enabled.size} of ${automations.size} on · $runsToday run${if (runsToday == 1) "" else "s"} today"
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 16.dp),
-                ) {
+
+                if (automations.isEmpty()) {
                     item {
-                        ListItem(
-                            headlineContent = {
-                                Text("${enabled.size} of ${automations.size} automation${if (automations.size == 1) "" else "s"} on")
-                            },
-                            supportingContent = {
+                        TonalCard(
+                            Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                            container = MaterialTheme.colorScheme.primaryContainer,
+                            content = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+                        ) {
+                            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Automate your phone", style = MaterialTheme.typography.titleLarge)
                                 Text(
-                                    if (next != null) "Next: ${next.first.name}, ${formatTimestamp(next.second)}"
-                                    else "Nothing is scheduled"
+                                    "Triggers, rules and actions that run on this device. Nothing leaves it.",
+                                    style = MaterialTheme.typography.bodyMedium,
                                 )
-                            },
-                            leadingContent = { IconTile(painterResource(R.drawable.ic_bolt)) },
-                            colors = transparentItemColors(),
-                            modifier = Modifier.clickable(onClick = onOpenAutomations),
-                        )
-                    }
-                    item { SectionLabel("Quick actions") }
-                    item {
-                        PreferenceRow(
-                            title = "Create automation",
-                            icon = rememberVectorPainter(Icons.Filled.Add),
-                            onClick = { showSheet = true },
-                        )
-                    }
-                    item {
-                        PreferenceRow(
-                            title = "View history",
-                            summary = if (history.isEmpty()) "No runs yet" else "${history.size} recorded run${if (history.size == 1) "" else "s"}",
-                            icon = painterResource(R.drawable.ic_history),
-                            onClick = onOpenHistory,
-                        )
-                    }
-                    item {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            SectionLabel("Turned on", Modifier.weight(1f))
-                            TextButton(onClick = onOpenAutomations, modifier = Modifier.padding(end = 4.dp)) { Text("See all") }
-                        }
-                    }
-                    if (enabled.isEmpty()) {
-                        item {
-                            Text(
-                                "Every automation is turned off.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
-                        }
-                    } else {
-                        enabled.take(4).forEach { automation ->
-                            item(key = "auto-" + automation.id) {
-                                ListItem(
-                                    headlineContent = { Text(automation.name) },
-                                    supportingContent = { Text(automation.trigger.summary()) },
-                                    leadingContent = { IconTile(kindIcon(automation.editor)) },
-                                    trailingContent = {
-                                        IconButton(onClick = { gate.ensure(automation.mayNotify()) { vm.run(automation) } }) {
-                                            Icon(Icons.Filled.PlayArrow, contentDescription = "Run ${automation.name}")
-                                        }
-                                    },
-                                    colors = transparentItemColors(),
-                                    modifier = Modifier.clickable { onEdit(automation) },
-                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(onClick = { showSheet = true }) { Text("Create") }
+                                    OutlinedButton(onClick = onOpenTemplates) { Text("Browse ideas") }
+                                }
                             }
                         }
                     }
+                } else {
                     item {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            SectionLabel("Recent activity", Modifier.weight(1f))
-                            if (history.isNotEmpty()) {
-                                TextButton(onClick = onOpenHistory, modifier = Modifier.padding(end = 4.dp)) { Text("See all") }
+                        UpNextCard(
+                            next = next,
+                            onRun = { a -> haptics.press(); gate.ensure(a.mayNotify()) { vm.run(a) } },
+                            onOpen = onEdit,
+                            onCreate = { showSheet = true },
+                        )
+                    }
+                }
+
+                if (needsNotifications && !permissions.notificationsAllowed) {
+                    item {
+                        InfoBanner(
+                            icon = painterResource(R.drawable.mdi_bell_sleep_outline),
+                            title = "Notifications are off",
+                            message = "Some automations show notifications, so they will fail until you allow them.",
+                            actionLabel = "Open settings",
+                            onAction = onOpenSettings,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+                }
+                if (needsExact && permissions.exactAlarmsApply && !permissions.exactAlarmsAllowed) {
+                    item {
+                        InfoBanner(
+                            icon = painterResource(R.drawable.mdi_alarm_check),
+                            title = "Scheduled runs may be late",
+                            message = "Exact alarms aren't allowed, so Android can delay timed automations.",
+                            actionLabel = "Fix in settings",
+                            onAction = onOpenSettings,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            container = MaterialTheme.colorScheme.tertiaryContainer,
+                            content = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
+
+                if (history.isNotEmpty()) {
+                    item {
+                        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StatTile(runsToday.toString(), "Runs today", Modifier.weight(1f))
+                            StatTile(
+                                if (successRate == null) "–" else "$successRate%",
+                                "Success, 7 days",
+                                Modifier.weight(1f),
+                                container = MaterialTheme.colorScheme.secondaryContainer,
+                                content = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                            StatTile(
+                                failedWeek.toString(),
+                                "Failed, 7 days",
+                                Modifier.weight(1f),
+                                container = if (failedWeek > 0) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainer,
+                                content = if (failedWeek > 0) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                    item {
+                        TonalCard(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("Activity", style = MaterialTheme.typography.titleSmall)
+                                ActivityBars(perDay, dayLabels)
                             }
                         }
                     }
-                    if (history.isEmpty()) {
-                        item {
-                            Text(
-                                "Runs show up here.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
+                }
+
+                if (enabled.isNotEmpty()) {
+                    item { SectionHeader("Quick run", actionLabel = "See all", onAction = onOpenAutomations) }
+                    item {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(enabled.take(8), key = { it.id }) { automation ->
+                                QuickRunCard(automation, onRun = { haptics.press(); gate.ensure(automation.mayNotify()) { vm.run(automation) } }, onOpen = { onEdit(automation) })
+                            }
                         }
-                    } else {
-                        history.take(3).forEach { record ->
-                            item(key = "run-" + record.id) { RunRow(record, onClick = onOpenHistory) }
+                    }
+                }
+
+                item { SectionHeader("Ideas", actionLabel = "See all", onAction = onOpenTemplates) }
+                item {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(Ideas.all.take(6), key = { it.id }) { idea ->
+                            TonalCard(Modifier.width(240.dp)) {
+                                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    IconTile(painterResource(automationIconChoices.firstOrNull { it.first == idea.icon }?.second ?: R.drawable.ic_bolt))
+                                    Text(idea.title, style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        idea.description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.height(48.dp),
+                                    )
+                                    FilledTonalButton(onClick = { vm.addIdea(idea) }) { Text("Add") }
+                                }
+                            }
                         }
+                    }
+                }
+
+                if (history.isNotEmpty()) {
+                    item { SectionHeader("Recent activity", actionLabel = "See all", onAction = onOpenHistory) }
+                    items(history.take(3), key = { "run-" + it.id }) { record ->
+                        RunRow(record, onClick = { vm.focusRun(record.id) })
                     }
                 }
             }
@@ -224,6 +305,90 @@ fun HomeScreen(
     }
 
     if (showSheet) {
-        NewAutomationSheet(onPick = { showSheet = false; onCreate(it) }, onDismiss = { showSheet = false })
+        NewAutomationSheet(
+            onPick = { showSheet = false; onCreate(it) },
+            onDismiss = { showSheet = false },
+            onTemplates = { showSheet = false; onOpenTemplates() },
+        )
+    }
+}
+
+@Composable
+private fun UpNextCard(
+    next: Pair<Automation, Long>?,
+    onRun: (Automation) -> Unit,
+    onOpen: (Automation) -> Unit,
+    onCreate: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    TonalCard(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        container = scheme.primaryContainer,
+        content = scheme.onPrimaryContainer,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        onClick = if (next != null) ({ onOpen(next.first) }) else null,
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (next != null) {
+                val (automation, at) = next
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    IconTile(
+                        painterResource(automationIconRes(automation)),
+                        container = scheme.surface.copy(alpha = 0.6f),
+                        content = scheme.onPrimaryContainer,
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text("Up next", style = MaterialTheme.typography.labelLarge)
+                        Text(automation.name, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${formatCountdown(at)} · ${formatTimestamp(at)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { onRun(automation) }) {
+                        Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Run now", modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Text(
+                        automation.trigger.summary(),
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.align(Alignment.CenterVertically).padding(start = 8.dp),
+                    )
+                }
+            } else {
+                Text("Nothing scheduled", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Give an automation a schedule, interval or one-time trigger and it will show up here.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                TextButton(onClick = onCreate) { Text("Create automation", color = scheme.onPrimaryContainer) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickRunCard(automation: Automation, onRun: () -> Unit, onOpen: () -> Unit) {
+    TonalCard(Modifier.width(156.dp), onClick = onOpen) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            IconTile(painterResource(automationIconRes(automation)))
+            Text(
+                automation.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.height(40.dp),
+            )
+            Text(
+                automation.trigger.summary(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            FilledTonalButton(onClick = onRun, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                Text("Run", modifier = Modifier.padding(start = 4.dp))
+            }
+        }
     }
 }

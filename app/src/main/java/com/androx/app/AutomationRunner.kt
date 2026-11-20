@@ -9,6 +9,7 @@ import com.androx.app.model.Automation
 import com.androx.app.model.ExecutionRecord
 import com.androx.app.model.RunSource
 import com.androx.app.model.Trigger
+import com.androx.app.model.isTimed
 
 /** Glue between the pure engine and the app's storage: waits for data, runs, records history. */
 class AutomationRunner(
@@ -35,8 +36,19 @@ class AutomationRunner(
     suspend fun runScheduled(id: String): ExecutionRecord? {
         awaitData()
         val automation = automations.get(id) ?: return null
-        if (!automation.enabled || automation.trigger !is Trigger.Schedule) return null
-        return runAndRecord(automation, RunSource.SCHEDULE)
+        if (!automation.enabled || !automation.trigger.isTimed()) return null
+        val record = runAndRecord(automation, RunSource.SCHEDULE)
+        // A one-time automation has done its job: turn it off so it isn't offered as "scheduled" any more.
+        if (automation.trigger is Trigger.Once) automations.setEnabled(id, false)
+        return record
+    }
+
+    /** Called when the device has finished starting. Runs every enabled "when the device starts" automation. */
+    suspend fun runOnBoot(): List<ExecutionRecord> {
+        awaitData()
+        return automations.state.value
+            .filter { it.enabled && it.trigger is Trigger.DeviceBoot }
+            .map { runAndRecord(it, RunSource.BOOT) }
     }
 
     private suspend fun runAndRecord(automation: Automation, source: RunSource): ExecutionRecord {

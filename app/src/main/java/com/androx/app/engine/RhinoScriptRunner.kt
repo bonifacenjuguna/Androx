@@ -20,6 +20,15 @@ interface ScriptHost {
     fun batteryLevel(): Int
     fun isCharging(): Boolean
     fun nowMillis(): Long
+
+    // Newer members have defaults so small fakes (tests) don't need them.
+    fun toast(message: String) { throw ActionException("Toasts aren't available here.") }
+    fun vibrate(durationMs: Int) { throw ActionException("Vibration isn't available here.") }
+    fun copy(text: String) { throw ActionException("The clipboard isn't available here.") }
+    fun speak(text: String) { throw ActionException("Text to speech isn't available here.") }
+    fun isWifiConnected(): Boolean = false
+    fun isScreenOn(): Boolean = true
+    fun ringer(): String = "normal"
 }
 
 sealed interface ScriptResult {
@@ -45,6 +54,13 @@ object ScriptApiDocs {
         Entry("androx.battery()", "Battery level, 0–100."),
         Entry("androx.isCharging()", "true while the device is charging."),
         Entry("androx.now()", "Current time in milliseconds since 1970."),
+        Entry("androx.toast(message)", "Shows a short on-screen message."),
+        Entry("androx.vibrate(ms)", "Vibrates for 50 to 5000 milliseconds."),
+        Entry("androx.copy(text)", "Copies text to the clipboard."),
+        Entry("androx.speak(text)", "Reads text aloud with the device's text-to-speech voice."),
+        Entry("androx.isWifiConnected()", "true while the device is on Wi-Fi."),
+        Entry("androx.isScreenOn()", "true while the screen is on."),
+        Entry("androx.ringer()", "\"normal\", \"vibrate\" or \"silent\"."),
     )
 }
 
@@ -151,7 +167,26 @@ class RhinoScriptRunner(private val timeoutMillis: Long = 5_000) : ScriptRunner 
         define(androx, "battery") { host.batteryLevel().toDouble() }
         define(androx, "isCharging") { host.isCharging() }
         define(androx, "now") { host.nowMillis().toDouble() }
-        ScriptableObject.putProperty(androx, "version", "0.0.0")
+        define(androx, "toast") { args ->
+            host.toast(text(args, 0))
+            Undefined.instance
+        }
+        define(androx, "vibrate") { args ->
+            host.vibrate(if (args.isNotEmpty()) Context.toNumber(args[0]).toInt() else 300)
+            Undefined.instance
+        }
+        define(androx, "copy") { args ->
+            host.copy(text(args, 0))
+            Undefined.instance
+        }
+        define(androx, "speak") { args ->
+            host.speak(text(args, 0))
+            Undefined.instance
+        }
+        define(androx, "isWifiConnected") { host.isWifiConnected() }
+        define(androx, "isScreenOn") { host.isScreenOn() }
+        define(androx, "ringer") { host.ringer() }
+        ScriptableObject.putProperty(androx, "version", "0.0.1")
 
         ScriptableObject.putProperty(scope, "androx", androx)
         ScriptableObject.putProperty(scope, "console", console)

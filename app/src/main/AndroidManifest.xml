@@ -7,6 +7,17 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- Re-arms schedules after a reboot. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Lets the "Vibrate" action and androx.vibrate() buzz the device. Granted automatically. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Lets conditions ask whether the device is on Wi-Fi. Granted automatically; no network traffic is sent. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Needed on Android 11+ so the "Speak" action can find the device's text-to-speech engine. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:name=".AndroxApp"

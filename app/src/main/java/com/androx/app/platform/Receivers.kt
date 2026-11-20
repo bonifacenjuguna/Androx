@@ -30,10 +30,12 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val container = (context.applicationContext as AndroxApp).container
         val pending = goAsync()
+        val isBoot = intent.action == Intent.ACTION_BOOT_COMPLETED
         container.scope.launch {
             try {
                 container.automations.awaitLoaded()
                 container.scheduler.reschedule(container.automations.state.value)
+                if (isBoot) container.runner.runOnBoot()
             } finally {
                 pending.finish()
             }

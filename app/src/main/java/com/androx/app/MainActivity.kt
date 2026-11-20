@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 )
                 onDispose { }
             }
-            AndroxTheme(darkTheme = dark, dynamicColor = settings.dynamicColor, pureBlack = settings.pureBlack) {
+            AndroxTheme(darkTheme = dark, dynamicColor = settings.dynamicColor, accent = settings.accent, pureBlack = settings.pureBlack) {
                 AndroxRoot(container)
             }
         }

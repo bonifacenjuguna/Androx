@@ -23,7 +23,9 @@ import com.androx.app.model.Automation
 import com.androx.app.platform.Permissions
 
 /** True if running this automation would try to post a notification. */
-fun Automation.mayNotify(): Boolean = actions.any { it is Action.ShowNotification || it is Action.RunScript || it is Action.RunAutomation }
+fun Automation.mayNotify(): Boolean = actions.any {
+    it is Action.ShowNotification || it is Action.RunScript || it is Action.RunAutomation || it is Action.IfThen || it is Action.Repeat
+}
 
 /**
  * Asks for the notification permission only at the moment it matters (the user runs something that posts one),

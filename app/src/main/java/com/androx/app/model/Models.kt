@@ -29,7 +29,16 @@ enum class Comparison(val symbol: String) {
     }
 }
 
-enum class VariableMode { SET, ADD }
+enum class VariableMode { SET, ADD, SUBTRACT, MULTIPLY, APPEND, DELETE }
+
+enum class RingerMode { NORMAL, VIBRATE, SILENT }
+
+enum class FlashlightMode { ON, OFF, TOGGLE }
+
+enum class VolumeStream { MEDIA, RING, ALARM, NOTIFICATION }
+
+/** Shortest repeat interval. Android's own limits (battery saver, Doze) can still delay runs. */
+const val MIN_INTERVAL_MINUTES = 5
 
 /** What starts an automation. */
 @Serializable
@@ -58,7 +67,47 @@ sealed interface Trigger {
             return afterMillis + 24L * 60 * 60 * 1000
         }
     }
+
+    /**
+     * Repeats every [minutes]. Runs happen at [startAt] + n × interval so the rhythm never drifts or restarts
+     * when other automations are edited. [startAt] is set to "now" when the trigger is created.
+     */
+    @Serializable
+    @SerialName("interval")
+    data class Interval(
+        val minutes: Int = 60,
+        val startAt: Long = 0L,
+    ) : Trigger {
+        fun nextRunMillis(afterMillis: Long): Long {
+            val step = minutes.coerceAtLeast(MIN_INTERVAL_MINUTES) * 60_000L
+            val first = startAt + step
+            if (afterMillis < first) return first
+            val n = (afterMillis - startAt) / step + 1
+            return startAt + n * step
+        }
+    }
+
+    /** Runs once at [atMillis] and then turns itself off. */
+    @Serializable
+    @SerialName("once")
+    data class Once(val atMillis: Long = 0L) : Trigger
+
+    /** Runs when the device finishes starting up. */
+    @Serializable
+    @SerialName("boot")
+    data object DeviceBoot : Trigger
 }
+
+/** The next time an alarm should fire for this trigger, or null if it isn't time-based (or has expired). */
+fun Trigger.nextFire(afterMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long? = when (this) {
+    Trigger.Manual, Trigger.DeviceBoot -> null
+    is Trigger.Schedule -> nextRunMillis(afterMillis, zone)
+    is Trigger.Interval -> nextRunMillis(afterMillis)
+    is Trigger.Once -> if (atMillis > afterMillis) atMillis else null
+}
+
+/** True for triggers that are driven by AlarmManager. */
+fun Trigger.isTimed(): Boolean = this is Trigger.Schedule || this is Trigger.Interval || this is Trigger.Once
 
 /** An optional guard evaluated after the trigger fires. */
 @Serializable
@@ -78,6 +127,66 @@ sealed interface Condition {
         val op: Comparison = Comparison.EQ,
         val value: String = "",
     ) : Condition
+
+    /** True between the two times. A window such as 22:00 → 07:00 wraps past midnight. */
+    @Serializable
+    @SerialName("time_window")
+    data class TimeWindow(
+        val fromHour: Int = 22,
+        val fromMinute: Int = 0,
+        val toHour: Int = 7,
+        val toMinute: Int = 0,
+    ) : Condition
+
+    /** True on the given days (ISO: 1 = Monday … 7 = Sunday). Empty means every day. */
+    @Serializable
+    @SerialName("days")
+    data class DaysOfWeek(val days: List<Int> = listOf(1, 2, 3, 4, 5)) : Condition
+
+    @Serializable
+    @SerialName("wifi")
+    data class WifiConnected(val connected: Boolean = true) : Condition
+
+    @Serializable
+    @SerialName("screen")
+    data class ScreenOn(val on: Boolean = true) : Condition
+
+    @Serializable
+    @SerialName("ringer")
+    data class Ringer(val mode: RingerMode = RingerMode.SILENT) : Condition
+
+    @Serializable
+    @SerialName("power_saver")
+    data class PowerSaver(val on: Boolean = true) : Condition
+
+    @Serializable
+    @SerialName("airplane")
+    data class AirplaneMode(val on: Boolean = true) : Condition
+
+    /** Passes only if every rule passes. */
+    @Serializable
+    @SerialName("all")
+    data class MatchAll(val items: List<Condition> = emptyList()) : Condition
+
+    /** Passes if at least one rule passes. */
+    @Serializable
+    @SerialName("any")
+    data class MatchAny(val items: List<Condition> = emptyList()) : Condition
+}
+
+/** The individual rules of a condition (a single rule is its own list of one). */
+fun Condition.rules(): List<Condition> = when (this) {
+    is Condition.MatchAll -> items
+    is Condition.MatchAny -> items
+    else -> listOf(this)
+}
+
+/** Combines rules back into one condition. Null when there are none. */
+fun buildCondition(rules: List<Condition>, matchAny: Boolean): Condition? = when {
+    rules.isEmpty() -> null
+    rules.size == 1 -> rules[0]
+    matchAny -> Condition.MatchAny(rules)
+    else -> Condition.MatchAll(rules)
 }
 
 const val DEFAULT_SCRIPT = """// Androx script. The only things you can use are the `androx` API and plain JavaScript.
@@ -112,6 +221,53 @@ sealed interface Action {
     @Serializable
     @SerialName("script")
     data class RunScript(val source: String = DEFAULT_SCRIPT) : Action
+
+    @Serializable
+    @SerialName("vibrate")
+    data class Vibrate(val durationMs: Int = 400) : Action
+
+    @Serializable
+    @SerialName("toast")
+    data class ShowToast(val message: String = "") : Action
+
+    @Serializable
+    @SerialName("clipboard")
+    data class CopyToClipboard(val text: String = "") : Action
+
+    @Serializable
+    @SerialName("speak")
+    data class Speak(val text: String = "") : Action
+
+    /** Pauses the run. A single run may wait at most 30 seconds in total. */
+    @Serializable
+    @SerialName("wait")
+    data class Wait(val seconds: Int = 2) : Action
+
+    @Serializable
+    @SerialName("flashlight")
+    data class Flashlight(val mode: FlashlightMode = FlashlightMode.TOGGLE) : Action
+
+    @Serializable
+    @SerialName("volume")
+    data class SetVolume(val stream: VolumeStream = VolumeStream.MEDIA, val percent: Int = 50) : Action
+
+    @Serializable
+    @SerialName("sound")
+    data object PlaySound : Action
+
+    /** Branches: runs [then] if the condition passes, otherwise [otherwise]. */
+    @Serializable
+    @SerialName("if")
+    data class IfThen(
+        val condition: Condition = Condition.BatteryLevel(),
+        val then: List<Action> = emptyList(),
+        val otherwise: List<Action> = emptyList(),
+    ) : Action
+
+    /** Runs [actions] [times] times. `{{index}}` holds the round number (1-based). */
+    @Serializable
+    @SerialName("repeat")
+    data class Repeat(val times: Int = 3, val actions: List<Action> = emptyList()) : Action
 }
 
 /**
@@ -129,12 +285,14 @@ data class Automation(
     val actions: List<Action> = emptyList(),
     val editor: EditorKind = EditorKind.BUILDER,
     val graph: WorkflowGraph? = null,
+    /** Key of a user-chosen icon (see the icon picker). Null means the icon of the trigger is shown. */
+    val icon: String? = null,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
 )
 
 enum class ExecutionStatus { SUCCESS, FAILED, SKIPPED }
-enum class RunSource { MANUAL, SCHEDULE }
+enum class RunSource { MANUAL, SCHEDULE, BOOT }
 
 @Serializable
 data class ExecutionRecord(

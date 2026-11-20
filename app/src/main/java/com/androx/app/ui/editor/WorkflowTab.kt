@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.androx.app.R
 import com.androx.app.model.Automation
+import com.androx.app.model.Condition
 import com.androx.app.model.NodeElement
 import com.androx.app.model.WfNode
 import com.androx.app.model.WorkflowCompiler
@@ -72,6 +73,8 @@ import com.androx.app.model.label
 import com.androx.app.model.summary
 import com.androx.app.ui.components.AddActionSheet
 import com.androx.app.ui.components.IconTile
+import com.androx.app.ui.components.create
+import com.androx.app.ui.components.kind
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -230,7 +233,7 @@ fun WorkflowTab(vm: EditorViewModel, showMessage: (String) -> Unit) {
 
     if (addSheet) {
         AddActionSheet(
-            onPick = { index -> addSheet = false; vm.addActionNode(newActionOfKind(index)) },
+            onPick = { kind -> addSheet = false; vm.addActionNode(kind.create()) },
             onDismiss = { addSheet = false },
         )
     }
@@ -265,7 +268,11 @@ private fun NodeSheet(vm: EditorViewModel, node: WfNode, others: List<Automation
             }
             is NodeElement.ConditionNode -> {
                 Text("Condition", style = MaterialTheme.typography.titleLarge)
-                ConditionEditor(element.condition) { vm.updateNode(node.id, NodeElement.ConditionNode(it)) }
+                ConditionsSection(
+                    condition = element.condition,
+                    onChange = { vm.updateNode(node.id, NodeElement.ConditionNode(it ?: Condition.BatteryLevel())) },
+                    required = true,
+                )
             }
             is NodeElement.ActionNode -> {
                 Text("Action", style = MaterialTheme.typography.titleLarge)
@@ -304,13 +311,13 @@ private fun NodeCard(
     val icon: Painter
     when (element) {
         is NodeElement.TriggerNode -> {
-            title = "Trigger"; subtitle = element.trigger.summary(); icon = painterResource(R.drawable.ic_bolt)
+            title = "Trigger"; subtitle = element.trigger.summary(); icon = painterResource(element.trigger.kind().icon)
         }
         is NodeElement.ConditionNode -> {
-            title = "Condition"; subtitle = element.condition.summary(); icon = rememberVectorPainter(Icons.Filled.CheckCircle)
+            title = "Condition"; subtitle = element.condition.summary(); icon = painterResource(R.drawable.mdi_tune_variant)
         }
         is NodeElement.ActionNode -> {
-            title = element.action.label(); subtitle = element.action.summary(); icon = rememberVectorPainter(Icons.Filled.PlayArrow)
+            title = element.action.label(); subtitle = element.action.summary(); icon = painterResource(element.action.kind().icon)
         }
     }
     val isTrigger = element is NodeElement.TriggerNode
@@ -334,7 +341,13 @@ private fun NodeCard(
                     }
                 },
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerHigh),
+            colors = CardDefaults.cardColors(
+                containerColor = when (element) {
+                    is NodeElement.TriggerNode -> scheme.primaryContainer
+                    is NodeElement.ConditionNode -> scheme.tertiaryContainer
+                    is NodeElement.ActionNode -> scheme.secondaryContainer
+                },
+            ),
             border = if (isSource) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant),
         ) {
             Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {

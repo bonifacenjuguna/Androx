@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -13,7 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.androx.app.data.Accent
 import androidx.compose.ui.unit.sp
 
 // Androx brand palette: black, white, charcoal, greys and silver. Red is kept only for errors.
@@ -88,7 +93,95 @@ private val AndroxDark: ColorScheme = darkColorScheme(
     inversePrimary = Charcoal,
 )
 
-private val AndroxTypography = Typography()
+private val base = Typography()
+
+/** Material 3 type scale with slightly stronger titles and labels, closer to Google's own apps. */
+private val AndroxTypography = Typography(
+    headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Normal),
+    titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Normal),
+    titleMedium = base.titleMedium.copy(fontWeight = FontWeight.Medium),
+    titleSmall = base.titleSmall.copy(fontWeight = FontWeight.Medium),
+    labelLarge = base.labelLarge.copy(fontWeight = FontWeight.Medium),
+)
+
+/** Rounder corners than the M3 defaults, as in Android 14/15 system apps. */
+private val AndroxShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(32.dp),
+)
+
+private fun hsl(h: Float, s: Float, l: Float): Color = Color.hsl(((h % 360f) + 360f) % 360f, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))
+
+/** A full tonal scheme grown from a single hue. Not Material You's HCT, but close in feel and fully offline. */
+private fun accentScheme(hue: Float, dark: Boolean): ColorScheme =
+    if (!dark) {
+        lightColorScheme(
+            primary = hsl(hue, 0.52f, 0.36f),
+            onPrimary = White,
+            primaryContainer = hsl(hue, 0.62f, 0.88f),
+            onPrimaryContainer = hsl(hue, 0.75f, 0.11f),
+            secondary = hsl(hue, 0.20f, 0.38f),
+            onSecondary = White,
+            secondaryContainer = hsl(hue, 0.28f, 0.88f),
+            onSecondaryContainer = hsl(hue, 0.35f, 0.12f),
+            tertiary = hsl(hue + 55f, 0.30f, 0.38f),
+            onTertiary = White,
+            tertiaryContainer = hsl(hue + 55f, 0.42f, 0.88f),
+            onTertiaryContainer = hsl(hue + 55f, 0.50f, 0.12f),
+            background = hsl(hue, 0.22f, 0.975f),
+            onBackground = hsl(hue, 0.12f, 0.10f),
+            surface = hsl(hue, 0.22f, 0.975f),
+            onSurface = hsl(hue, 0.12f, 0.10f),
+            surfaceVariant = hsl(hue, 0.18f, 0.89f),
+            onSurfaceVariant = hsl(hue, 0.12f, 0.29f),
+            surfaceTint = hsl(hue, 0.52f, 0.36f),
+            outline = hsl(hue, 0.08f, 0.45f),
+            outlineVariant = hsl(hue, 0.14f, 0.80f),
+            surfaceContainerLowest = White,
+            surfaceContainerLow = hsl(hue, 0.24f, 0.955f),
+            surfaceContainer = hsl(hue, 0.22f, 0.935f),
+            surfaceContainerHigh = hsl(hue, 0.20f, 0.915f),
+            surfaceContainerHighest = hsl(hue, 0.18f, 0.895f),
+            inverseSurface = hsl(hue, 0.10f, 0.19f),
+            inverseOnSurface = hsl(hue, 0.20f, 0.94f),
+            inversePrimary = hsl(hue, 0.70f, 0.78f),
+        )
+    } else {
+        darkColorScheme(
+            primary = hsl(hue, 0.68f, 0.78f),
+            onPrimary = hsl(hue, 0.80f, 0.14f),
+            primaryContainer = hsl(hue, 0.46f, 0.26f),
+            onPrimaryContainer = hsl(hue, 0.70f, 0.90f),
+            secondary = hsl(hue, 0.30f, 0.76f),
+            onSecondary = hsl(hue, 0.40f, 0.14f),
+            secondaryContainer = hsl(hue, 0.22f, 0.26f),
+            onSecondaryContainer = hsl(hue, 0.40f, 0.90f),
+            tertiary = hsl(hue + 55f, 0.42f, 0.78f),
+            onTertiary = hsl(hue + 55f, 0.55f, 0.14f),
+            tertiaryContainer = hsl(hue + 55f, 0.30f, 0.27f),
+            onTertiaryContainer = hsl(hue + 55f, 0.55f, 0.90f),
+            background = hsl(hue, 0.14f, 0.075f),
+            onBackground = hsl(hue, 0.10f, 0.90f),
+            surface = hsl(hue, 0.14f, 0.075f),
+            onSurface = hsl(hue, 0.10f, 0.90f),
+            surfaceVariant = hsl(hue, 0.12f, 0.25f),
+            onSurfaceVariant = hsl(hue, 0.12f, 0.78f),
+            surfaceTint = hsl(hue, 0.68f, 0.78f),
+            outline = hsl(hue, 0.08f, 0.58f),
+            outlineVariant = hsl(hue, 0.10f, 0.28f),
+            surfaceContainerLowest = hsl(hue, 0.14f, 0.05f),
+            surfaceContainerLow = hsl(hue, 0.14f, 0.10f),
+            surfaceContainer = hsl(hue, 0.14f, 0.125f),
+            surfaceContainerHigh = hsl(hue, 0.13f, 0.16f),
+            surfaceContainerHighest = hsl(hue, 0.12f, 0.20f),
+            inverseSurface = hsl(hue, 0.10f, 0.90f),
+            inverseOnSurface = hsl(hue, 0.12f, 0.17f),
+            inversePrimary = hsl(hue, 0.52f, 0.36f),
+        )
+    }
 
 /** Monospace style for the script editor. */
 val CodeTextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 19.sp)
@@ -97,6 +190,7 @@ val CodeTextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.s
 fun AndroxTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    accent: Accent = Accent.ANDROX,
     pureBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -104,6 +198,7 @@ fun AndroxTheme(
     var scheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        accent != Accent.ANDROX -> accentScheme(accent.hue, darkTheme)
         darkTheme -> AndroxDark
         else -> AndroxLight
     }
@@ -118,5 +213,5 @@ fun AndroxTheme(
             surfaceContainerHighest = Color(0xFF232325),
         )
     }
-    MaterialTheme(colorScheme = scheme, typography = AndroxTypography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = AndroxTypography, shapes = AndroxShapes, content = content)
 }

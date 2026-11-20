@@ -10,11 +10,12 @@ import com.androx.app.model.Action
 import com.androx.app.model.Automation
 import com.androx.app.model.Condition
 import com.androx.app.model.EditorKind
+import com.androx.app.model.ExecutionRecord
+import com.androx.app.model.rules
 import com.androx.app.model.NodeElement
 import com.androx.app.model.Trigger
 import com.androx.app.model.WorkflowCompiler
 import com.androx.app.model.WorkflowGraph
-import com.androx.app.ui.describeRun
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -57,6 +58,11 @@ class EditorViewModel(
         private set
     var busy by mutableStateOf(false)
         private set
+    var icon: String? by mutableStateOf(null)
+        private set
+    /** The result of the last "Save and run", shown in a sheet so the log is right there. */
+    var runResult: ExecutionRecord? by mutableStateOf(null)
+        private set
 
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
@@ -85,6 +91,7 @@ class EditorViewModel(
                     condition = a.condition
                     actions = a.actions
                     createdAt = a.createdAt
+                    icon = a.icon
                     graph = WorkflowCompiler.sync(a.trigger, a.condition, a.actions, a.graph)
                     // Open on the tab the automation was last edited with, but never on a tab it doesn't suit.
                     tab = a.editor
@@ -100,6 +107,8 @@ class EditorViewModel(
 
     fun changeName(value: String) { name = value; touch() }
     fun changeEnabled(value: Boolean) { enabled = value; touch() }
+    fun changeIcon(value: String?) { icon = value; touch() }
+    fun dismissRunResult() { runResult = null }
     fun changeTrigger(value: Trigger) { trigger = value; touch() }
     fun changeCondition(value: Condition?) { condition = value; touch() }
     fun addAction(action: Action) { actions = actions + action; touch() }
@@ -108,6 +117,11 @@ class EditorViewModel(
         touch()
     }
     fun removeAction(index: Int) { actions = actions.filterIndexed { i, _ -> i != index }; touch() }
+    fun duplicateAction(index: Int) {
+        val original = actions.getOrNull(index) ?: return
+        actions = actions.toMutableList().apply { add(index + 1, original) }
+        touch()
+    }
     fun moveAction(index: Int, delta: Int) {
         val to = index + delta
         if (to !in actions.indices) return
@@ -194,21 +208,34 @@ class EditorViewModel(
     fun validate(): String? {
         if (name.isBlank()) return "Give your automation a name."
         if (actions.isEmpty()) return "Add at least one action."
-        actions.forEachIndexed { i, a ->
-            val n = i + 1
-            when (a) {
-                is Action.RunScript -> if (a.source.isBlank()) return "Action $n: the script is empty."
-                is Action.SetVariable -> if (a.name.isBlank()) return "Action $n: choose a variable name."
-                is Action.RunAutomation -> {
-                    if (a.automationId.isBlank()) return "Action $n: choose which automation to run."
-                    if (a.automationId == id) return "Action $n: an automation can't run itself."
-                }
-                is Action.ShowNotification, is Action.WriteLog -> Unit
-            }
+        val t = trigger
+        if (enabled && t is Trigger.Once && t.atMillis <= System.currentTimeMillis()) {
+            return "Pick a time in the future for the “Once” trigger."
         }
-        val c = condition
-        if (c is Condition.Variable && c.name.isBlank()) return "Condition: choose a variable name."
+        condition?.let { c -> conditionProblem(c)?.let { return "Rule: $it" } }
+        actions.forEachIndexed { i, a -> actionProblem(a, i + 1)?.let { return it } }
         return null
+    }
+
+    private fun conditionProblem(c: Condition): String? =
+        if (c.rules().any { it is Condition.Variable && it.name.isBlank() }) "choose a variable name." else null
+
+    private fun actionProblem(a: Action, n: Int): String? = when (a) {
+        is Action.RunScript -> if (a.source.isBlank()) "Action $n: the script is empty." else null
+        is Action.SetVariable -> if (a.name.isBlank()) "Action $n: choose a variable name." else null
+        is Action.RunAutomation -> when {
+            a.automationId.isBlank() -> "Action $n: choose which automation to run."
+            a.automationId == id -> "Action $n: an automation can't run itself."
+            else -> null
+        }
+        is Action.ShowToast -> if (a.message.isBlank()) "Action $n: the toast message is empty." else null
+        is Action.Speak -> if (a.text.isBlank()) "Action $n: there is nothing to say." else null
+        is Action.CopyToClipboard -> if (a.text.isBlank()) "Action $n: there is no text to copy." else null
+        is Action.IfThen -> conditionProblem(a.condition)?.let { "Action $n: $it" }
+            ?: (a.then + a.otherwise).firstNotNullOfOrNull { actionProblem(it, n) }
+        is Action.Repeat -> if (a.actions.isEmpty()) "Action $n: add something to repeat."
+        else a.actions.firstNotNullOfOrNull { actionProblem(it, n) }
+        else -> null
     }
 
     private fun build(): Automation {
@@ -222,6 +249,7 @@ class EditorViewModel(
             actions = actions,
             editor = tab,
             graph = syncedGraph(),
+            icon = icon,
             createdAt = createdAt,
             updatedAt = now,
         )
@@ -258,7 +286,7 @@ class EditorViewModel(
             dirty = false
             val record = container.runner.runManually(automation.id)
             busy = false
-            _messages.send(describeRun(record, automation.name))
+            if (record != null) runResult = record
         }
     }
 
@@ -272,5 +300,7 @@ class EditorViewModel(
     }
 
     /** True if running this automation would try to show a notification. */
-    fun needsNotifications(): Boolean = actions.any { it is Action.ShowNotification || it is Action.RunScript || it is Action.RunAutomation }
+    fun needsNotifications(): Boolean = actions.any {
+        it is Action.ShowNotification || it is Action.RunScript || it is Action.RunAutomation || it is Action.IfThen || it is Action.Repeat
+    }
 }

@@ -66,6 +66,10 @@ private val snippets = listOf(
     "Counter" to "const n = Number(androx.getVar(\"count\") || 0) + 1;\nandrox.setVar(\"count\", n);\nandrox.log(\"count is \" + n);\n",
     "Battery check" to "if (androx.battery() < 20 && !androx.isCharging()) {\n  androx.notify(\"Low battery\", androx.battery() + \"% left\");\n}\n",
     "Read a variable" to "const value = androx.getVar(\"name\");\nandrox.log(value === null ? \"not set\" : value);\n",
+    "Night guard" to "const hour = new Date(androx.now()).getHours();\nif (hour >= 22 || hour < 7) {\n  androx.log(\"quiet hours\");\n}\n",
+    "Wi-Fi only" to "if (!androx.isWifiConnected()) {\n  androx.toast(\"Connect to Wi-Fi first\");\n}\n",
+    "Buzz and speak" to "androx.vibrate(300);\nandrox.speak(\"Battery is \" + androx.battery() + \" percent\");\n",
+    "Copy a stamp" to "androx.copy(new Date(androx.now()).toISOString());\nandrox.toast(\"Copied\");\n",
 )
 
 /** A key on the symbol bar: what it shows, what it inserts and how far to move the caret back afterwards. */
@@ -88,6 +92,20 @@ private val symbols = listOf(
     Symbol("||"),
     Symbol("=>"),
 )
+
+/** Keeps the indentation of the previous line when Enter is pressed, and adds a level after `{`. */
+private fun autoIndent(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+    if (new.text.length != old.text.length + 1 || new.selection.length != 0) return new
+    val caret = new.selection.start
+    if (caret == 0 || new.text[caret - 1] != '\n') return new
+    val lineStart = new.text.lastIndexOf('\n', caret - 2).let { if (it < 0) 0 else it + 1 }
+    val previous = new.text.substring(lineStart, caret - 1)
+    var indent = previous.takeWhile { it == ' ' }
+    if (previous.trimEnd().endsWith("{")) indent += "  "
+    if (indent.isEmpty()) return new
+    val text = new.text.substring(0, caret) + indent + new.text.substring(caret)
+    return new.copy(text = text, selection = TextRange(caret + indent.length))
+}
 
 private val TOKEN = Regex(
     """(//[^\n]*|/\*[\s\S]*?\*/)|("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|\b(const|let|var|function|return|if|else|for|while|do|break|continue|true|false|null|undefined|new|try|catch|finally|throw|typeof|of|in)\b|\b(androx|console)\b|\b(\d+(?:\.\d+)?)\b"""
@@ -208,8 +226,9 @@ fun ScriptTab(vm: EditorViewModel) {
                     BasicTextField(
                         value = editorValue,
                         onValueChange = { value ->
-                            editorValue = value
-                            vm.setScript(value.text)
+                            val next = autoIndent(editorValue, value)
+                            editorValue = next
+                            vm.setScript(next.text)
                         },
                         textStyle = CodeTextStyle.copy(color = scheme.onSurface),
                         cursorBrush = SolidColor(scheme.primary),
@@ -219,6 +238,15 @@ fun ScriptTab(vm: EditorViewModel) {
                     )
                 }
             }
+            val caret = editorValue.selection.start.coerceIn(0, editorValue.text.length)
+            val before = editorValue.text.substring(0, caret)
+            Text(
+                "Ln ${before.count { it == '\n' } + 1}, Col ${caret - (before.lastIndexOf('\n') + 1) + 1} · " +
+                    "${editorValue.text.count { it == '\n' } + 1} lines · ${editorValue.text.length} chars",
+                style = MaterialTheme.typography.labelSmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+            )
             // Symbols that are awkward to reach on a phone keyboard.
             Row(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),

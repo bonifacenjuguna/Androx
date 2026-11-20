@@ -89,3 +89,24 @@ fun formatClockTime(millis: Long): String = timeFormatter.format(Instant.ofEpoch
 
 /** "Today, 14:32", "Yesterday, 09:05" or "12 Nov 2026, 18:00". */
 fun formatTimestamp(millis: Long): String = "${dayLabel(millis)}, ${formatClockTime(millis)}"
+
+/** "in 2 h 14 min", "in 35 min", "in under a minute". */
+fun formatCountdown(targetMillis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+    val minutes = ((targetMillis - nowMillis) / 60_000L).coerceAtLeast(0)
+    val days = minutes / (60 * 24)
+    val hours = (minutes % (60 * 24)) / 60
+    val mins = minutes % 60
+    return when {
+        days > 0 -> "in $days d ${hours} h"
+        hours > 0 -> "in $hours h $mins min"
+        minutes > 0 -> "in $minutes min"
+        else -> "in under a minute"
+    }
+}
+
+fun greeting(hour: Int): String = when (hour) {
+    in 5..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    in 17..21 -> "Good evening"
+    else -> "Good night"
+}

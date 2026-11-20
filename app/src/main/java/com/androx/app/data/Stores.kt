@@ -79,6 +79,12 @@ class AutomationRepository(
 
     suspend fun addAll(items: List<Automation>) = change { it + items }
 
+    /** Inserts new automations and replaces ones that already exist (matched by id). */
+    suspend fun upsertAll(items: List<Automation>) = change { list ->
+        val incoming = items.associateBy { it.id }
+        list.map { incoming[it.id] ?: it } + items.filter { item -> list.none { it.id == item.id } }
+    }
+
     suspend fun delete(id: String) = change { list -> list.filterNot { it.id == id } }
 
     suspend fun setEnabled(id: String, enabled: Boolean) = change { list ->

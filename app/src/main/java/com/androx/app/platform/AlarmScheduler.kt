@@ -7,10 +7,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import com.androx.app.model.Automation
-import com.androx.app.model.Trigger
+import com.androx.app.model.nextFire
 
 /**
- * Schedules daily/weekly triggers with AlarmManager.
+ * Schedules time-based triggers (daily/weekly, interval, one-time) with AlarmManager.
  * Exact alarms need a user-granted special permission on Android 12+; without it Androx uses inexact alarms
  * (which Android may delay) and says so in Settings.
  */
@@ -31,14 +31,13 @@ class AlarmScheduler(private val context: Context) {
     @Synchronized
     fun reschedule(automations: List<Automation>) {
         val previous = prefs.getStringSet(KEY_IDS, emptySet()).orEmpty()
-        val wanted = automations.filter { it.enabled && it.trigger is Trigger.Schedule }
-        val wantedIds = wanted.map { it.id }.toSet()
-        (previous - wantedIds).forEach { cancel(it) }
         val now = System.currentTimeMillis()
-        for (automation in wanted) {
-            val trigger = automation.trigger as Trigger.Schedule
-            schedule(automation.id, trigger.nextRunMillis(now))
+        val timed = automations.mapNotNull { a ->
+            if (!a.enabled) null else a.trigger.nextFire(now)?.let { at -> a.id to at }
         }
+        val wantedIds = timed.map { it.first }.toSet()
+        (previous - wantedIds).forEach { cancel(it) }
+        for ((id, at) in timed) schedule(id, at)
         prefs.edit().putStringSet(KEY_IDS, wantedIds).apply()
     }
 

@@ -18,16 +18,12 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,6 +34,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
+import com.androx.app.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -84,21 +82,20 @@ fun IconTile(icon: ImageVector, modifier: Modifier = Modifier) {
 fun StatusTile(status: ExecutionStatus, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val icon = when (status) {
-        ExecutionStatus.SUCCESS -> Icons.Filled.Check
-        ExecutionStatus.FAILED -> Icons.Filled.Warning
-        ExecutionStatus.SKIPPED -> Icons.Filled.Info
+        ExecutionStatus.SUCCESS -> R.drawable.mdi_check_circle_outline
+        ExecutionStatus.FAILED -> R.drawable.mdi_alert_circle_outline
+        ExecutionStatus.SKIPPED -> R.drawable.mdi_skip_next_circle_outline
     }
     val container = when (status) {
-        ExecutionStatus.SUCCESS -> scheme.surfaceContainerHighest
+        ExecutionStatus.SUCCESS -> scheme.secondaryContainer
         ExecutionStatus.FAILED -> scheme.errorContainer
         ExecutionStatus.SKIPPED -> scheme.surfaceContainerHighest
     }
     val content = when (status) {
-        ExecutionStatus.SUCCESS -> scheme.onSurface
+        ExecutionStatus.SUCCESS -> scheme.onSecondaryContainer
         ExecutionStatus.FAILED -> scheme.onErrorContainer
         ExecutionStatus.SKIPPED -> scheme.onSurfaceVariant
     }
-    val painter = rememberVectorPainter(icon)
     val description = when (status) {
         ExecutionStatus.SUCCESS -> "Succeeded"
         ExecutionStatus.FAILED -> "Failed"
@@ -111,7 +108,7 @@ fun StatusTile(status: ExecutionStatus, modifier: Modifier = Modifier) {
             .background(container),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(painter, contentDescription = description, tint = content, modifier = Modifier.size(22.dp))
+        Icon(painterResource(icon), contentDescription = description, tint = content, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -160,13 +157,18 @@ fun SwitchRow(
     summary: String? = null,
     icon: Painter? = null,
 ) {
+    val haptics = LocalHaptics.current
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = if (summary != null) ({ Text(summary) }) else null,
         leadingContent = if (icon != null) ({ IconTile(icon) }) else null,
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        trailingContent = { AndroxSwitch(checked = checked, onCheckedChange = null) },
         colors = transparentItemColors(),
-        modifier = modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        modifier = modifier.toggleable(
+            value = checked,
+            role = Role.Switch,
+            onValueChange = { v -> haptics.tick(); onCheckedChange(v) },
+        ),
     )
 }
 
