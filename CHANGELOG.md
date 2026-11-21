@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.0.2-alpha2 (Zip II: Flow engine)
+
+Nothing changes on screen yet; the engine is not connected to the app until Zip III.
+
+- `core/engine/FlowEngine`: runs a Flow. Constraints first (skips with a reason), then the step tree.
+- Control flow: If / else and Repeat (with `{index}`), Run Flow with cycle and depth guards, a 1000-step cap per run.
+- Per-step options: turn off, "only if", retries with delay, timeout, continue on error, save result to a variable.
+- Run options: whole-run timeout, flow-wide on-error policy, wait budget (30 s by default, raisable).
+- Nested All / Any / None constraint groups with per-rule "is not" and v0.0.1-style reasons (`ConstraintEvaluator`).
+- Typed values end to end. `{user.items.1.name}` reaches into lists and dictionaries; old text variables still work.
+- Simulator: `simulate(flow)` describes every step and changes nothing (copy-on-write variables, no device calls, no waiting).
+- Extensible: leaf actions live in a table; adding one is one `ActionExecutor`.
+- Cancellation is never swallowed by retries or "continue on error".
+- 44 new unit tests.
+
 ## 0.0.2-alpha1 (Zip I: foundation)
 
 Nothing changes on screen yet. This zip lays the ground the rest of 0.0.2 stands on.
