@@ -22,9 +22,9 @@ class Registry<T : Spec>(specs: List<T> = emptyList()) {
 
     val all: List<T> get() = byId.values.toList()
 
-    val categories: List<SpecCategory> get() = byId.values.map { it.category }.distinct()
+    val categories: List<String> get() = byId.values.map { it.category }.distinct()
 
-    fun inCategory(category: SpecCategory): List<T> = byId.values.filter { it.category == category }
+    fun inCategory(category: String): List<T> = byId.values.filter { it.category == category }
 
     /**
      * Free-text search across names, descriptions, categories and synonyms ("make phone silent" finds Ringer mode).
@@ -37,7 +37,7 @@ class Registry<T : Spec>(specs: List<T> = emptyList()) {
             val name = spec.name.lowercase()
             val syn = spec.synonyms.joinToString(" ").lowercase()
             val desc = spec.description.lowercase()
-            val cat = spec.category.label.lowercase()
+            val cat = spec.category.lowercase()
             var score = 0
             for (w in words) {
                 score += when {
