@@ -1,3 +1,8 @@
+# Androx v0.0.2 (in progress)
+
+> 0.0.2 is being delivered as a series of zips. See `docs/ZIP_PLAN.md`. The spec lives in
+> `docs/Androx_0_0_2_Master_Specification.md`. Sections below still describe v0.0.1 until the UI zips land.
+
 # Androx v0.0.1
 
 Local-first Android automation. Triggers, rules and actions run on the device; nothing is sent anywhere.

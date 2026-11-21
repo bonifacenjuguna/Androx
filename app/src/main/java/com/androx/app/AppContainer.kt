@@ -4,6 +4,7 @@ import android.app.Application
 import com.androx.app.data.AutomationRepository
 import com.androx.app.data.HistoryRepository
 import com.androx.app.data.SettingsRepository
+import com.androx.app.data.StatsRepository
 import com.androx.app.data.VariableRepository
 import com.androx.app.engine.ExecutionEngine
 import com.androx.app.platform.AlarmScheduler
@@ -21,6 +22,7 @@ class AppContainer(app: Application) {
     val scheduler = AlarmScheduler(app)
     val variables = VariableRepository(app.filesDir, scope)
     val history = HistoryRepository(app.filesDir, scope)
+    val stats = StatsRepository(app.filesDir, scope)
     val automations = AutomationRepository(app.filesDir, scope) { list -> scheduler.reschedule(list) }
 
     private val bridge = AndroidDeviceBridge(app)
@@ -29,7 +31,7 @@ class AppContainer(app: Application) {
         variables = variables,
         findAutomation = { id -> automations.get(id) },
     )
-    val runner = AutomationRunner(automations, history, variables, settings, engine)
+    val runner = AutomationRunner(automations, history, variables, settings, engine, stats)
 
     /** True once everything the UI needs from disk has been read. */
     val isReady: Boolean

@@ -1,16 +1,38 @@
 # Changelog
 
-## 0.0.2 (in progress: layer 0-2 foundation)
+## 0.0.2-alpha1 (Zip I: foundation)
+
+Nothing changes on screen yet. This zip lays the ground the rest of 0.0.2 stands on.
 
 **Tooling**
-- Material 3 1.4.0 stable, Compose BOM 2025.09.00, AGP 8.13.0, Kotlin 2.2.20, Gradle 8.13, compileSdk 36 (target stays 35).
+- Compose BOM 2025.12.00 (Material 3 1.4.0), Kotlin 2.2.20, AGP 8.13.0, Gradle 8.13, compileSdk and targetSdk 36,
+  plus matching AndroidX, coroutines and serialization lines. `kotlinOptions` replaced by `compilerOptions`.
 
-**Core (new, pure Kotlin, unit tested; the v0.0.1 UI still runs on the old model until the UI layers land)**
-- `core.value`: typed values (text, number, true/false, list, dictionary), JSON paths, safe maths evaluator, `{{template}}` engine with `{{flow}}` and the `{{automation}}` alias.
-- `core.model`: Flow v2 (several triggers, constraint groups All/Any/None, step tree with options), generic Event/Check/Op carriers.
-- `core.migrate`: automatic, repeatable v0.0.1 automation to Flow conversion.
-- `core.registry`: self-describing trigger, constraint and action specs with search, summaries and validation.
-- `core.store`: crash-safe files with last-good copy, daily stats that are never trimmed, Trash rules.
+**Data safety**
+- Every JSON file now keeps a rolling last-good copy (`.bak`), recovers from it when the main file is damaged,
+  and never promotes a damaged file to last-good.
+
+**Data model v2** (`core/`)
+- `Flow` with several triggers, nested All/Any/None constraint groups, a step tree with per-step options, run options,
+  folders, version snapshots and Trash fields. Generic `Check` and `Op` carriers; unknown types from a newer file load
+  as "Unavailable" instead of crashing.
+- Automatic, idempotent v1 → v2 migration (`FlowMigration`, `FlowStorage`). Flows keep the id of the automation they came
+  from; `automations.json` is never touched. v0.0.0/0.0.1 backups import through `BackupCodec`.
+
+**Registries** (`core/registry/`)
+- One self-describing `Spec` per trigger, constraint and action: typed settings schema, validation, plain-English
+  summary, permissions, battery cost, edition, outputs, synonyms. All v0.0.1 features are registered and their
+  summaries match the old wording exactly (tested).
+
+**Typed values and tools**
+- Text, number, boolean, list, dictionary; JSON parse and path lookup; a safe math expression evaluator; string and
+  regex helpers with size and pattern caps.
+
+**Stats and Trash**
+- Daily stats store (never trimmed) recording every run from now on: success ring, 7-day series, streaks, busiest Flow,
+  time-saved estimate. Trash rules: soft delete, restore switched off, 30-day expiry.
+
+**Tests**: 66 new unit tests (values, math, migration, registries, stats, Trash, atomic storage).
 
 ## 0.0.1
 

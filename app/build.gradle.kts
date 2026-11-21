@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,9 +12,9 @@ android {
     defaultConfig {
         applicationId = "com.androx.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 3
-        versionName = "0.0.2"
+        versionName = "0.0.2-alpha1"
     }
 
     buildTypes {
@@ -47,12 +45,10 @@ android {
     }
 }
 
+// Kotlin 2.2 removed the old `kotlinOptions` block; compilerOptions is the replacement.
 kotlin {
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_17)
-        // Material 3 Expressive APIs are opt-in.
-        optIn.add("androidx.compose.material3.ExperimentalMaterial3ExpressiveApi")
-        optIn.add("androidx.compose.material3.ExperimentalMaterial3Api")
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -80,4 +76,5 @@ dependencies {
     implementation(libs.rhino)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -3,6 +3,7 @@ package com.androx.app
 import com.androx.app.data.AutomationRepository
 import com.androx.app.data.HistoryRepository
 import com.androx.app.data.SettingsRepository
+import com.androx.app.data.StatsRepository
 import com.androx.app.data.VariableRepository
 import com.androx.app.engine.ExecutionEngine
 import com.androx.app.model.Automation
@@ -18,6 +19,7 @@ class AutomationRunner(
     private val variables: VariableRepository,
     private val settings: SettingsRepository,
     private val engine: ExecutionEngine,
+    private val stats: StatsRepository,
 ) {
     private suspend fun awaitData() {
         automations.awaitLoaded()
@@ -54,6 +56,8 @@ class AutomationRunner(
     private suspend fun runAndRecord(automation: Automation, source: RunSource): ExecutionRecord {
         val record = engine.execute(automation, source)
         history.add(record, settings.settings.value.historyLimit)
+        // Daily stats are kept forever (history is trimmed), so streaks and insights stay accurate.
+        runCatching { stats.record(record.automationId, record.startedAt, record.status, record.durationMs) }
         return record
     }
 }

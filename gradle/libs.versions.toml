@@ -1,8 +1,10 @@
 [versions]
+# Androx 0.0.2 tooling. Compose BOM 2025.12.00 is the stable release that carries Material 3 1.4.0
+# (confirmed against the Android Developers release notes). The other pins are the matching stable lines;
+# if Gradle reports a conflict, paste the message back and it is fixed in one pass.
 agp = "8.13.0"
 kotlin = "2.2.20"
-composeBom = "2025.09.00"
-material3 = "1.4.0"
+composeBom = "2025.12.00"
 coreKtx = "1.17.0"
 activityCompose = "1.11.0"
 lifecycle = "2.9.4"
@@ -27,8 +29,9 @@ androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 rhino = { group = "org.mozilla", name = "rhino", version.ref = "rhino" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
