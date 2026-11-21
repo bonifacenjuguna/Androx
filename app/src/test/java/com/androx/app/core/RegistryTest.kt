@@ -11,6 +11,7 @@ import com.androx.app.core.registry.SpecCatalog
 import com.androx.app.core.registry.SpecKind
 import com.androx.app.core.registry.SpecRegistry
 import com.androx.app.core.registry.SpecStatus
+import com.androx.app.core.registry.validateParams
 import com.androx.app.core.registry.SpecCategory
 import com.androx.app.model.Action
 import com.androx.app.model.Automation
