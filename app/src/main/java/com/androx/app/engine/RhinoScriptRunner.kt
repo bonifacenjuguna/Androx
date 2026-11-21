@@ -118,14 +118,30 @@ class RhinoScriptRunner(private val timeoutMillis: Long = 5_000) : ScriptRunner 
         }
     }
 
-    private fun describe(t: Throwable, factory: DeadlineFactory): String = when {
-        factory.timedOut -> "Script stopped: it ran for more than ${timeoutMillis / 1000.0} seconds."
-        t is WrappedException -> {
-            val inner = t.wrappedException
-            (inner?.message ?: inner?.javaClass?.simpleName ?: "Script failed") + lineSuffix(t)
+    private fun describe(t: Throwable, factory: DeadlineFactory): String {
+        if (factory.timedOut) {
+            return "Script stopped: it ran for more than ${timeoutMillis / 1000.0} seconds."
         }
-        t is RhinoException -> "${t.details()}${lineSuffix(t)}"
-        else -> t.message ?: t.javaClass.simpleName
+
+        // Rhino can wrap exceptions thrown by host functions more than once. Preserve the
+        // original device/action error instead of exposing a generic JavaScript wrapper.
+        var cause: Throwable? = t
+        val seen = mutableSetOf<Throwable>()
+        while (cause != null && seen.add(cause)) {
+            if (cause is ActionException) {
+                val suffix = (t as? RhinoException)?.let(::lineSuffix).orEmpty()
+                return (cause.message ?: "Action failed") + suffix
+            }
+            cause = when (val current = cause) {
+                is WrappedException -> current.wrappedException
+                else -> current.cause
+            }
+        }
+
+        return when (t) {
+            is RhinoException -> "${t.details()}${lineSuffix(t)}"
+            else -> t.message ?: t.javaClass.simpleName
+        }
     }
 
     private fun lineSuffix(e: RhinoException): String = if (e.lineNumber() > 0) " (line ${e.lineNumber()})" else ""
