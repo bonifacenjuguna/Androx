@@ -92,7 +92,15 @@ private class HostFunction(
 ) : BaseFunction() {
     override fun getFunctionName(): String = functionName
 
-    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable?, args: Array<out Any?>): Any? = body(args)
+    override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable?, args: Array<out Any?>): Any? {
+        return try {
+            body(args)
+        } catch (e: ActionException) {
+            // Rhino expects host-function failures to be runtime exceptions. Wrap checked
+            // action failures so they cross the JavaScript boundary without being cast to Error.
+            throw WrappedException(e)
+        }
+    }
 }
 
 /**
