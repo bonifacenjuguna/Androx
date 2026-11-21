@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.0.2 (in progress: layer 0-2 foundation)
+
+**Tooling**
+- Material 3 1.4.0 stable, Compose BOM 2025.09.00, AGP 8.13.0, Kotlin 2.2.20, Gradle 8.13, compileSdk 36 (target stays 35).
+
+**Core (new, pure Kotlin, unit tested; the v0.0.1 UI still runs on the old model until the UI layers land)**
+- `core.value`: typed values (text, number, true/false, list, dictionary), JSON paths, safe maths evaluator, `{{template}}` engine with `{{flow}}` and the `{{automation}}` alias.
+- `core.model`: Flow v2 (several triggers, constraint groups All/Any/None, step tree with options), generic Event/Check/Op carriers.
+- `core.migrate`: automatic, repeatable v0.0.1 automation to Flow conversion.
+- `core.registry`: self-describing trigger, constraint and action specs with search, summaries and validation.
+- `core.store`: crash-safe files with last-good copy, daily stats that are never trimmed, Trash rules.
+
 ## 0.0.1
 
 **New**
