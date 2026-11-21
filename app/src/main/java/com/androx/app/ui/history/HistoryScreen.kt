@@ -145,7 +145,7 @@ fun HistoryScreen(vm: MainViewModel) {
                 EmptyState(
                     icon = painterResource(R.drawable.ic_history),
                     title = "No runs yet",
-                    message = "Every time an automation runs, it is recorded here with a step-by-step log.",
+                    message = "Every time a Flow runs, it is recorded here with a step-by-step log.",
                     modifier = Modifier.align(Alignment.Center),
                 )
             } else {
@@ -180,11 +180,11 @@ fun HistoryScreen(vm: MainViewModel) {
                                 FilterChip(
                                     selected = automationFilter != null,
                                     onClick = { automationMenu = true },
-                                    label = { Text(names.firstOrNull { it.first == automationFilter }?.second ?: "Any automation", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                    label = { Text(names.firstOrNull { it.first == automationFilter }?.second ?: "Any Flow", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                     trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
                                 )
                                 DropdownMenu(expanded = automationMenu, onDismissRequest = { automationMenu = false }) {
-                                    DropdownMenuItem(text = { Text("Any automation") }, onClick = { automationMenu = false; automationFilter = null })
+                                    DropdownMenuItem(text = { Text("Any Flow") }, onClick = { automationMenu = false; automationFilter = null })
                                     names.forEach { (id, name) ->
                                         DropdownMenuItem(text = { Text(name) }, onClick = { automationMenu = false; automationFilter = id })
                                     }
@@ -228,7 +228,7 @@ fun HistoryScreen(vm: MainViewModel) {
         ConfirmDialog(
             icon = painterResource(R.drawable.mdi_delete_outline),
             title = "Clear history?",
-            message = "All ${history.size} recorded runs will be removed. Your automations are not affected.",
+            message = "All ${history.size} recorded runs will be removed. Your Flows are not affected.",
             confirmLabel = "Clear",
             onConfirm = { confirmClear = false; vm.clearHistory() },
             onDismiss = { confirmClear = false },

@@ -206,7 +206,7 @@ class EditorViewModel(
     // ---- Saving and running ----
 
     fun validate(): String? {
-        if (name.isBlank()) return "Give your automation a name."
+        if (name.isBlank()) return "Give your Flow a name."
         if (actions.isEmpty()) return "Add at least one action."
         val t = trigger
         if (enabled && t is Trigger.Once && t.atMillis <= System.currentTimeMillis()) {
@@ -224,8 +224,8 @@ class EditorViewModel(
         is Action.RunScript -> if (a.source.isBlank()) "Action $n: the script is empty." else null
         is Action.SetVariable -> if (a.name.isBlank()) "Action $n: choose a variable name." else null
         is Action.RunAutomation -> when {
-            a.automationId.isBlank() -> "Action $n: choose which automation to run."
-            a.automationId == id -> "Action $n: an automation can't run itself."
+            a.automationId.isBlank() -> "Action $n: choose which Flow to run."
+            a.automationId == id -> "Action $n: a Flow can't run itself."
             else -> null
         }
         is Action.ShowToast -> if (a.message.isBlank()) "Action $n: the toast message is empty." else null

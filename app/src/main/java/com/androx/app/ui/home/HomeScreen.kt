@@ -142,7 +142,7 @@ fun HomeScreen(
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text("Browse ideas") }, onClick = { menu = false; onOpenTemplates() })
-                            DropdownMenuItem(text = { Text("Add sample automations") }, onClick = { menu = false; vm.addSamples() })
+                            DropdownMenuItem(text = { Text("Add sample Flows") }, onClick = { menu = false; vm.addSamples() })
                             DropdownMenuItem(text = { Text("Settings") }, onClick = { menu = false; onOpenSettings() })
                         }
                     }
@@ -208,7 +208,7 @@ fun HomeScreen(
                         InfoBanner(
                             icon = painterResource(R.drawable.mdi_bell_sleep_outline),
                             title = "Notifications are off",
-                            message = "Some automations show notifications, so they will fail until you allow them.",
+                            message = "Some Flows show notifications, so they will fail until you allow them.",
                             actionLabel = "Open settings",
                             onAction = onOpenSettings,
                             modifier = Modifier.padding(horizontal = 16.dp),
@@ -357,10 +357,10 @@ private fun UpNextCard(
             } else {
                 Text("Nothing scheduled", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Give an automation a schedule, interval or one-time trigger and it will show up here.",
+                    "Give a Flow a schedule, interval or one-time trigger and it will show up here.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                TextButton(onClick = onCreate) { Text("Create automation", color = scheme.onPrimaryContainer) }
+                TextButton(onClick = onCreate) { Text("Create Flow", color = scheme.onPrimaryContainer) }
             }
         }
     }

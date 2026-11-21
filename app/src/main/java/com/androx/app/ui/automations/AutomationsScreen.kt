@@ -140,7 +140,7 @@ fun AutomationsScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             LargeTopAppBar(
-                title = { Text("Automations") },
+                title = { Text("Flows") },
                 actions = {
                     IconButton(onClick = { searching = !searching; if (!searching) query = "" }) {
                         Icon(
@@ -181,11 +181,11 @@ fun AutomationsScreen(
             if (loaded && automations.isEmpty()) {
                 EmptyState(
                     icon = painterResource(R.drawable.ic_bolt),
-                    title = "No automations yet",
+                    title = "No Flows yet",
                     message = "Create one, start from an idea, or add samples to see how things work.",
                     modifier = Modifier.align(Alignment.Center),
                 ) {
-                    Button(onClick = { showSheet = true }) { Text("Create automation") }
+                    Button(onClick = { showSheet = true }) { Text("Create Flow") }
                     OutlinedButton(onClick = onOpenTemplates) { Text("Browse ideas") }
                     androidx.compose.material3.TextButton(onClick = { vm.addSamples() }) { Text("Add samples") }
                 }
@@ -200,7 +200,7 @@ fun AutomationsScreen(
                             TextField(
                                 value = query,
                                 onValueChange = { query = it },
-                                placeholder = { Text("Search automations") },
+                                placeholder = { Text("Search Flows") },
                                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                                 singleLine = true,
                                 shape = CircleShape,
@@ -233,7 +233,7 @@ fun AutomationsScreen(
                             EmptyState(
                                 icon = painterResource(R.drawable.mdi_filter_variant),
                                 title = "Nothing matches",
-                                message = if (query.isNotBlank()) "No automation is called “${query.trim()}”." else "No ${filter.label.lowercase()} automations.",
+                                message = if (query.isNotBlank()) "No Flow is called “${query.trim()}”." else "No ${filter.label.lowercase()} Flows.",
                             )
                         }
                     }

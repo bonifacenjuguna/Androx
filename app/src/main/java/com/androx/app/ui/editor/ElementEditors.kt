@@ -542,10 +542,10 @@ fun ActionEditor(
             }
             is Action.RunAutomation -> {
                 if (others.isEmpty()) {
-                    Hint("Save another automation first, then pick it here.")
+                    Hint("Save another Flow first, then pick it here.")
                 } else {
                     DropdownField(
-                        label = "Automation",
+                        label = "Flow",
                         options = others,
                         selected = others.firstOrNull { it.id == action.automationId },
                         placeholder = if (action.automationId.isBlank()) "Choose…" else action.automationName,

@@ -126,7 +126,7 @@ enum class ActionKind(val label: String, val summary: String, @DrawableRes val i
     REPEAT("Repeat", "Run a few actions several times", R.drawable.mdi_repeat, "Logic"),
     WAIT("Wait", "Pause for a few seconds", R.drawable.mdi_timer_sand, "Logic"),
     VARIABLE("Set variable", "Store, change or remove a shared value", R.drawable.mdi_variable, "Data"),
-    RUN_AUTOMATION("Run automation", "Start another saved automation", R.drawable.mdi_play_circle_outline, "Data"),
+    RUN_AUTOMATION("Run Flow", "Start another saved Flow", R.drawable.mdi_play_circle_outline, "Data"),
     LOG("Write to log", "Add a line to this run's details", R.drawable.mdi_script_text_outline, "Data"),
     SCRIPT("Run JavaScript", "Use the androx scripting API", R.drawable.mdi_code_braces, "Advanced"),
 }
@@ -213,7 +213,7 @@ private fun SheetTitle(text: String) {
 fun NewAutomationSheet(onPick: (EditorKind) -> Unit, onDismiss: () -> Unit, onTemplates: (() -> Unit)? = null) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(bottom = 16.dp)) {
-            SheetTitle("Create automation")
+            SheetTitle("Create Flow")
             PreferenceRow(
                 title = "Builder",
                 summary = "Choose a trigger, rules and actions",
@@ -235,7 +235,7 @@ fun NewAutomationSheet(onPick: (EditorKind) -> Unit, onDismiss: () -> Unit, onTe
             if (onTemplates != null) {
                 PreferenceRow(
                     title = "Start from an idea",
-                    summary = "Ready-made automations you can tweak",
+                    summary = "Ready-made Flows you can tweak",
                     icon = painterResource(R.drawable.mdi_lightbulb_outline),
                     onClick = onTemplates,
                 )

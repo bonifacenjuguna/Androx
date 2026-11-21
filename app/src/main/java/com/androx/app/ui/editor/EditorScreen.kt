@@ -133,7 +133,7 @@ fun EditorScreen(vm: EditorViewModel, onClose: () -> Unit) {
                 vm.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 vm.notFound -> EmptyState(
                     icon = painterResource(R.drawable.ic_bolt),
-                    title = "Automation not found",
+                    title = "Flow not found",
                     message = "It may have been deleted.",
                     modifier = Modifier.align(Alignment.Center),
                 ) { Button(onClick = onClose) { Text("Close") } }
@@ -145,7 +145,7 @@ fun EditorScreen(vm: EditorViewModel, onClose: () -> Unit) {
                         TextField(
                             value = vm.name,
                             onValueChange = { vm.changeName(it) },
-                            placeholder = { Text("Automation name") },
+                            placeholder = { Text("Flow name") },
                             textStyle = MaterialTheme.typography.titleLarge,
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
@@ -217,7 +217,7 @@ fun EditorScreen(vm: EditorViewModel, onClose: () -> Unit) {
     if (confirmDiscard) {
         ConfirmDialog(
             title = "Discard changes?",
-            message = "Your edits to this automation haven't been saved.",
+            message = "Your edits to this Flow haven't been saved.",
             confirmLabel = "Discard",
             dismissLabel = "Keep editing",
             onConfirm = { confirmDiscard = false; onClose() },
@@ -227,8 +227,8 @@ fun EditorScreen(vm: EditorViewModel, onClose: () -> Unit) {
     if (confirmDelete) {
         ConfirmDialog(
             icon = rememberVectorPainter(Icons.Filled.Delete),
-            title = "Delete automation?",
-            message = "This removes “${vm.name.ifBlank { "this automation" }}” and its schedule. This can't be undone.",
+            title = "Delete Flow?",
+            message = "This removes “${vm.name.ifBlank { "this Flow" }}” and its schedule. This can't be undone.",
             confirmLabel = "Delete",
             onConfirm = { confirmDelete = false; vm.delete { scope.launch { onClose() } } },
             onDismiss = { confirmDelete = false },

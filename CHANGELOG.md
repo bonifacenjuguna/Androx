@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.2-alpha3 (Zip III: the app runs on Flows)
+
+The app now stores and runs Flows. The screens look the same apart from the new wording.
+
+- **Storage:** `flows.json` is the source of truth. On the first launch after updating, saved automations migrate into it
+  automatically; `automations.json` is left untouched. A damaged `flows.json` recovers from the last-good copy.
+- **Engine:** manual runs, schedules, one-time runs and "device starts" all go through the new Flow engine.
+- **Trash:** deleting a Flow moves it to Trash (Undo still works); Flows older than 30 days in Trash are removed on launch.
+- **Run rules:** per-Flow run limit per hour and concurrency (skip while running, or queue). Skipped runs are logged.
+- **Alarms:** re-armed from the Flows after loading and after every change, never from a half-loaded list.
+- **Wording:** "automation" is now "Flow" everywhere you read it. Internal ids and file names are unchanged.
+- **Safe editing:** the current editor works on a view of each Flow. Anything it can't show (extra triggers, negated rules,
+  run options, folders, steps added later) is kept when you save.
+- **Also:** `simulate(id)` on the runner for the coming dry-run button.
+- 23 new unit tests.
+
+Known gaps (by design, next zips): REPLACE concurrency queues instead of cancelling; multi-trigger, cooldown and hold
+time arrive with the trigger hub; backups still export the v0.0.1 format.
+
 ## 0.0.2-alpha2 (Zip II: Flow engine)
 
 Nothing changes on screen yet; the engine is not connected to the app until Zip III.

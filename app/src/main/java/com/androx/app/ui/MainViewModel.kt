@@ -109,7 +109,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun addSamples() {
         container.scope.launch {
             container.automations.addAll(Samples.create(System.currentTimeMillis()))
-            say("Added 3 sample automations")
+            say("Added 3 sample Flows")
         }
     }
 
@@ -150,7 +150,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
             val ok = withContext(Dispatchers.IO) {
                 runCatching { resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: error("no stream") }.isSuccess
             }
-            say(if (ok) "Backed up ${automations.value.size} automations and ${variables.value.size} variables" else "Couldn't write the backup file")
+            say(if (ok) "Backed up ${automations.value.size} Flows and ${variables.value.size} variables" else "Couldn't write the backup file")
         }
     }
 
@@ -167,7 +167,7 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                 val backup = Backup.decode(text)
                 container.automations.upsertAll(backup.automations)
                 backup.variables.forEach { (k, v) -> container.variables.set(k, v) }
-                say("Restored ${backup.automations.size} automations and ${backup.variables.size} variables")
+                say("Restored ${backup.automations.size} Flows and ${backup.variables.size} variables")
             } catch (e: Exception) {
                 say("That file isn't an Androx backup")
             }

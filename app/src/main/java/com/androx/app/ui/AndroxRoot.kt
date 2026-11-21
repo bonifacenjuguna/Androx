@@ -72,7 +72,7 @@ import com.androx.app.ui.variables.VariablesScreen
 
 private enum class Tab(val route: String, val label: String) {
     HOME("home", "Home"),
-    AUTOMATIONS("automations", "Automations"),
+    AUTOMATIONS("automations", "Flows"),
     HISTORY("history", "History"),
     SETTINGS("settings", "Settings"),
 }

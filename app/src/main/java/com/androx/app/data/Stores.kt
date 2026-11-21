@@ -1,7 +1,6 @@
 package com.androx.app.data
 
 import com.androx.app.engine.VariableStore
-import com.androx.app.model.Automation
 import com.androx.app.model.ExecutionRecord
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -52,48 +51,6 @@ class PersistentState<T>(
             withContext(Dispatchers.IO) { file.write(next) }
             next
         }
-    }
-}
-
-class AutomationRepository(
-    dir: File,
-    scope: CoroutineScope,
-    private val onChanged: (List<Automation>) -> Unit,
-) {
-    private val store = PersistentState(
-        JsonFile(File(dir, "automations.json"), ListSerializer(Automation.serializer())) { emptyList() },
-        scope,
-        emptyList(),
-    )
-    val state: StateFlow<List<Automation>> get() = store.state
-    val loaded: StateFlow<Boolean> get() = store.loaded
-
-    suspend fun awaitLoaded() = store.awaitLoaded()
-
-    fun get(id: String): Automation? = store.state.value.firstOrNull { it.id == id }
-
-    suspend fun upsert(automation: Automation) = change { list ->
-        if (list.any { it.id == automation.id }) list.map { if (it.id == automation.id) automation else it }
-        else list + automation
-    }
-
-    suspend fun addAll(items: List<Automation>) = change { it + items }
-
-    /** Inserts new automations and replaces ones that already exist (matched by id). */
-    suspend fun upsertAll(items: List<Automation>) = change { list ->
-        val incoming = items.associateBy { it.id }
-        list.map { incoming[it.id] ?: it } + items.filter { item -> list.none { it.id == item.id } }
-    }
-
-    suspend fun delete(id: String) = change { list -> list.filterNot { it.id == id } }
-
-    suspend fun setEnabled(id: String, enabled: Boolean) = change { list ->
-        list.map { if (it.id == id) it.copy(enabled = enabled, updatedAt = System.currentTimeMillis()) else it }
-    }
-
-    private suspend fun change(transform: (List<Automation>) -> List<Automation>) {
-        val next = store.update(transform)
-        onChanged(next)
     }
 }
 

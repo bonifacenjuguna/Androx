@@ -77,8 +77,8 @@ private val whatsNew = listOf(
     "New triggers: every N minutes or hours, one time, and when the device starts.",
     "Rules can be combined: all or any of battery, time of day, days, Wi-Fi, screen, ringer and more.",
     "New actions: vibrate, toast, speak, play sound, flashlight, volume, clipboard and wait.",
-    "If / else and Repeat let one automation make decisions and loop.",
-    "Swipe an automation to run it or delete it, with Undo.",
+    "If / else and Repeat let one Flow make decisions and loop.",
+    "Swipe a Flow to run it or delete it, with Undo.",
     "Back up and restore everything as a JSON file.",
     "Accent colours, haptics and a refreshed look throughout.",
 )
@@ -167,7 +167,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                         )
                         SwitchRow(
                             title = "Haptic feedback",
-                            summary = "A light tap for switches and running automations",
+                            summary = "A light tap for switches and running Flows",
                             icon = painterResource(R.drawable.mdi_vibrate),
                             checked = settings.haptics,
                             onCheckedChange = { c -> vm.updateSettings { it.copy(haptics = c) } },
@@ -196,7 +196,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                             granted = status.exactAlarmsAllowed,
                             grantedText = if (status.exactAlarmsApply) "Allowed" else "Not restricted on this Android version",
                             deniedText = "Not allowed. Scheduled runs may be late.",
-                            why = "Lets scheduled automations run at the exact minute.",
+                            why = "Lets scheduled Flows run at the exact minute.",
                             actionLabel = "Settings",
                             showAction = status.exactAlarmsApply && !status.exactAlarmsAllowed,
                             onAction = { Permissions.openExactAlarmSettings(context) },
@@ -221,7 +221,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                     PreferenceGroup {
                         PreferenceRow(
                             title = "Variables",
-                            summary = if (variables.isEmpty()) "None stored" else "${variables.size} stored, shared by all automations",
+                            summary = if (variables.isEmpty()) "None stored" else "${variables.size} stored, shared by all Flows",
                             icon = painterResource(R.drawable.mdi_variable),
                             onClick = onOpenVariables,
                         )
@@ -233,7 +233,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                         )
                         PreferenceRow(
                             title = "Back up",
-                            summary = "Save ${automations.size} automation${if (automations.size == 1) "" else "s"} and ${variables.size} variable${if (variables.size == 1) "" else "s"} to a file",
+                            summary = "Save ${automations.size} Flow${if (automations.size == 1) "" else "s"} and ${variables.size} variable${if (variables.size == 1) "" else "s"} to a file",
                             icon = painterResource(R.drawable.mdi_file_export_outline),
                             onClick = {
                                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -242,7 +242,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                         )
                         PreferenceRow(
                             title = "Restore",
-                            summary = "Load automations and variables from a backup file",
+                            summary = "Load Flows and variables from a backup file",
                             icon = painterResource(R.drawable.mdi_file_import_outline),
                             onClick = { importer.launch(arrayOf("*/*")) },
                         )
@@ -263,7 +263,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
                             AndroxWordmark(height = 28.dp)
                             Text("Version $version", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(
-                                "Automations that run on this device. Nothing is sent anywhere.",
+                                "Flows that run on this device. Nothing is sent anywhere.",
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -359,7 +359,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
         ConfirmDialog(
             icon = painterResource(R.drawable.mdi_file_import_outline),
             title = "Restore from this file?",
-            message = "Automations with the same ID are replaced. Everything else on this device is kept.",
+            message = "Flows with the same ID are replaced. Everything else on this device is kept.",
             confirmLabel = "Restore",
             onConfirm = { pendingRestore = null; vm.importFrom(context.contentResolver, uri) },
             onDismiss = { pendingRestore = null },
@@ -369,7 +369,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenVariables: () -> Unit) {
         ConfirmDialog(
             icon = painterResource(R.drawable.mdi_delete_outline),
             title = "Clear history?",
-            message = "All ${history.size} records will be removed. Your automations are not affected.",
+            message = "All ${history.size} records will be removed. Your Flows are not affected.",
             confirmLabel = "Clear",
             onConfirm = { vm.clearHistory(); confirmClear = false },
             onDismiss = { confirmClear = false },

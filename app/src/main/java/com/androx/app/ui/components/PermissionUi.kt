@@ -87,7 +87,7 @@ fun rememberNotificationGate(): NotificationGate {
             title = { Text("Allow Androx to send notifications?") },
             text = {
                 Text(
-                    "This automation can show a notification. If you don't allow it, the automation still runs, " +
+                    "This Flow can show a notification. If you don't allow it, the Flow still runs, " +
                         "but the notification fails and the reason is recorded in History."
                 )
             },

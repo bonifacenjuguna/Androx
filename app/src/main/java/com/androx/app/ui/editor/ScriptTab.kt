@@ -277,7 +277,7 @@ fun ScriptTab(vm: EditorViewModel) {
                     )
                 }
                 Text(
-                    "Variables are shared by every automation and are always text. A script that throws, or a notification Android blocks, is recorded as a failed run in History.",
+                    "Variables are shared by every Flow and are always text. A script that throws, or a notification Android blocks, is recorded as a failed run in History.",
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

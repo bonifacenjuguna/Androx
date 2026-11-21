@@ -1,18 +1,20 @@
 package com.androx.app
 
 import android.app.Application
+import com.androx.app.core.FlowAdapter
+import com.androx.app.core.engine.FlowEngine
+import com.androx.app.core.engine.asValues
 import com.androx.app.data.AutomationRepository
+import com.androx.app.data.FlowRepository
 import com.androx.app.data.HistoryRepository
 import com.androx.app.data.SettingsRepository
 import com.androx.app.data.StatsRepository
 import com.androx.app.data.VariableRepository
-import com.androx.app.engine.ExecutionEngine
 import com.androx.app.platform.AlarmScheduler
 import com.androx.app.platform.AndroidDeviceBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 /** Hand-rolled dependency container: one instance for the whole process, created by [AndroxApp]. */
 class AppContainer(app: Application) {
@@ -23,25 +25,28 @@ class AppContainer(app: Application) {
     val variables = VariableRepository(app.filesDir, scope)
     val history = HistoryRepository(app.filesDir, scope)
     val stats = StatsRepository(app.filesDir, scope)
-    val automations = AutomationRepository(app.filesDir, scope) { list -> scheduler.reschedule(list) }
+
+    /** Flows and folders (`flows.json`). Migrates v0.0.1 data on the first launch after updating. */
+    val flows = FlowRepository(app.filesDir, scope)
+
+    /** The view of [flows] the current screens use. */
+    val automations = AutomationRepository(flows)
 
     private val bridge = AndroidDeviceBridge(app)
-    private val engine = ExecutionEngine(
+    private val engine = FlowEngine(
         device = bridge,
-        variables = variables,
-        findAutomation = { id -> automations.get(id) },
+        variables = variables.asValues(),
+        findFlow = { id -> flows.get(id) },
     )
-    val runner = AutomationRunner(automations, history, variables, settings, engine, stats)
+    val runner = AutomationRunner(flows, history, variables, settings, engine, stats)
 
     /** True once everything the UI needs from disk has been read. */
     val isReady: Boolean
-        get() = automations.loaded.value && history.loaded.value
+        get() = flows.loaded.value && history.loaded.value
 
     init {
-        // Restore alarms for saved schedules (the system forgets them after reboots, updates and force-stops).
-        scope.launch {
-            automations.awaitLoaded()
-            scheduler.reschedule(automations.state.value)
-        }
+        // Keep the system's alarms in line with the saved Flows: once after loading (the system forgets alarms after
+        // reboots, updates and force-stops) and after every change.
+        flows.observe { file -> scheduler.reschedule(FlowAdapter.activeAutomations(file)) }
     }
 }
