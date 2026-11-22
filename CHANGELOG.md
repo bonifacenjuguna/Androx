@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.0.2-alpha4 (Zip IV: device state, constraints, logic and data actions)
+
+The engine and registries gain their finished constraint set and the logic and data actions. The current screens don't
+offer them yet (the new editors do, in later zips); they run today in imported Flows and in the simulator.
+
+**Device state providers** (one definition each, feeds a constraint, `{value}`, previews)
+- 28 providers: battery level, charging, charger type, temperature, Battery Saver; Wi-Fi, network type, metered, VPN,
+  Bluetooth, NFC, location; airplane, screen, locked, dark theme, auto-rotate, headphones, free storage, time since boot;
+  ringer, Do Not Disturb, media playing, speakerphone, media / ring / alarm volume.
+- A reader for each on Android (`AndroidStateReader`). A state that can't be read gives "can't be read right now" instead of
+  guessing. Older checks stay for saved Flows and are hidden from pickers.
+
+**Constraints**
+- Typed comparisons shared by every rule: equals, not, less, greater, between, contains, matches pattern.
+- New checks: Compare values, Flow state (running, turned on, ran recently, ran N times today), Started by, date range,
+  day of month (including "last day"), month of year.
+
+**Actions**
+- Flow control: For each (lists, dictionaries, lines), While (always capped), Leave loop, Next round, Stop Flow (finish,
+  fail or skip, with a returned value), Wait until, Try / on error with `{{error.message}}`, Run Flow with inputs and a
+  returned value, Turn a Flow on or off.
+- Data: Calculate, Text tools (14 operations, patterns), Read JSON, Format date and time, Random, List, Dictionary, typed
+  local values.
+- Break, continue and stop are never retried or swallowed by "continue on error" or Try. Each run's log starts with what
+  started it.
+- 66 new unit tests.
+
 ## 0.0.2-alpha3 (Zip III: the app runs on Flows)
 
 The app now stores and runs Flows. The screens look the same apart from the new wording.

@@ -136,6 +136,23 @@ sealed interface ParamSpec {
         override val help: String = "",
     ) : ParamSpec
 
+    /** A set of whole numbers in [min]..[max] (days of the month, months). [labels] name them from [min] upwards. */
+    data class IntSet(
+        override val key: String,
+        override val label: String,
+        val min: Int,
+        val max: Int,
+        val labels: List<String> = emptyList(),
+        override val help: String = "",
+    ) : ParamSpec
+
+    /** A nested All / Any / None constraint group, edited with the logic builder. Stored as a [com.androx.app.core.ConstraintGroup]. */
+    data class Logic(
+        override val key: String,
+        override val label: String,
+        override val help: String = "",
+    ) : ParamSpec
+
     data class FlowRef(
         override val key: String,
         override val label: String,
@@ -170,7 +187,8 @@ fun validateParams(schema: List<ParamSpec>, params: JsonObject): List<String> {
             is ParamSpec.Days -> if (params.intList(p.key).any { it !in 1..7 }) problems += "${p.label} has an invalid day."
             is ParamSpec.VariableName -> if (params.str(p.key).isBlank()) problems += "${p.label} can't be empty."
             is ParamSpec.FlowRef -> if (params.str(p.key).isBlank()) problems += "Choose a Flow."
-            is ParamSpec.Toggle, is ParamSpec.DateTime, is ParamSpec.Code -> Unit
+            is ParamSpec.IntSet -> if (params.intList(p.key).any { it !in p.min..p.max }) problems += "${p.label} has a value outside ${p.min}–${p.max}."
+            is ParamSpec.Toggle, is ParamSpec.DateTime, is ParamSpec.Code, is ParamSpec.Logic -> Unit
         }
     }
     return problems
@@ -205,6 +223,8 @@ data class Spec(
     val summary: (JsonObject) -> String,
     /** Extra validation on top of the schema. */
     val validate: (JsonObject) -> List<String> = { emptyList() },
+    /** Set on entries kept only so older Flows keep working; pickers hide them and offer this id instead. */
+    val supersededBy: String? = null,
 ) {
     fun problems(params: JsonObject): List<String> = validateParams(this.params, params) + validate(params)
 
@@ -230,7 +250,7 @@ data class Spec(
                     map[p.key] = JsonPrimitive(p.defaultHour)
                     map[p.minuteKey] = JsonPrimitive(p.defaultMinute)
                 }
-                is ParamSpec.Days, is ParamSpec.DateTime, is ParamSpec.VariableName, is ParamSpec.Code, is ParamSpec.FlowRef -> Unit
+                is ParamSpec.Days, is ParamSpec.DateTime, is ParamSpec.VariableName, is ParamSpec.Code, is ParamSpec.FlowRef, is ParamSpec.IntSet, is ParamSpec.Logic -> Unit
             }
         }
         return JsonObject(map)

@@ -27,9 +27,10 @@ class AutomationRunner(
     private val settings: SettingsRepository,
     private val engine: FlowEngine,
     private val stats: StatsRepository,
+    private val activity: FlowActivity,
 ) {
     private val timedTypes = setOf(TriggerIds.SCHEDULE, TriggerIds.INTERVAL, TriggerIds.ONCE)
-    private val active: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val active: MutableSet<String> get() = activity.running
     private val queues = ConcurrentHashMap<String, Mutex>()
 
     private suspend fun awaitData() {

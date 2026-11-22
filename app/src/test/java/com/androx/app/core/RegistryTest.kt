@@ -44,8 +44,9 @@ class RegistryTest {
             }
         }
         assertEquals(5, catalog.triggers.all().size)
-        assertEquals(10, catalog.constraints.all().size)
-        assertEquals(15, catalog.actions.all().size)
+        // 10 older checks, 6 logic and date checks, and one generated check per device state provider.
+        assertEquals(10 + 6 + com.androx.app.core.state.StateCatalog.providers.size, catalog.constraints.all().size)
+        assertEquals(15 + 16, catalog.actions.all().size)
     }
 
     @Test

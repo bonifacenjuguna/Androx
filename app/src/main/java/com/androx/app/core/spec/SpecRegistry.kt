@@ -17,6 +17,9 @@ class SpecRegistry(val kind: SpecKind) {
 
     fun all(): List<Spec> = byId.values.toList()
 
+    /** What a picker offers: everything except entries kept only for older Flows. */
+    fun pickable(): List<Spec> = all().filter { it.supersededBy == null }
+
     fun byCategory(): Map<SpecCategory, List<Spec>> =
         all().groupBy { it.category }.toSortedMap(compareBy<SpecCategory> { it.ordinal })
 

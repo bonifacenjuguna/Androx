@@ -23,6 +23,15 @@ object CheckIds {
     const val RINGER_MODE = "ringer_mode"
     const val BATTERY_SAVER = "battery_saver"
     const val AIRPLANE_MODE = "airplane_mode"
+    const val COMPARE = "compare"
+    const val FLOW_STATE = "flow_state"
+    const val TRIGGERED_BY = "triggered_by"
+    const val DATE_RANGE = "date_range"
+    const val DAY_OF_MONTH = "day_of_month"
+    const val MONTH_OF_YEAR = "month_of_year"
+
+    /** Device-state constraints are stored as `state:<provider id>`, for example `state:battery.temp`. */
+    const val STATE_PREFIX = "state:"
 }
 
 object OpIds {
@@ -41,9 +50,27 @@ object OpIds {
     const val PLAY_SOUND = "play_sound"
     const val IF = "if"
     const val REPEAT = "repeat"
+    const val FOR_EACH = "for_each"
+    const val WHILE = "while"
+    const val BREAK = "break"
+    const val CONTINUE = "continue"
+    const val STOP = "stop"
+    const val WAIT_UNTIL = "wait_until"
+    const val TRY = "try"
+    const val CALCULATE = "calculate"
+    const val TEXT = "text"
+    const val JSON = "json"
+    const val DATE_FORMAT = "date_format"
+    const val RANDOM = "random"
+    const val LIST_OP = "list_op"
+    const val DICT_OP = "dict_op"
+    const val SET_LOCAL = "set_local"
+    const val FLOW_ENABLE = "flow_enable"
 
     /** Block names used by flow-control steps. */
     const val BLOCK_THEN = "then"
     const val BLOCK_ELSE = "else"
     const val BLOCK_BODY = "body"
+    const val BLOCK_TRY = "try"
+    const val BLOCK_CATCH = "catch"
 }

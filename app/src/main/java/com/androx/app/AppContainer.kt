@@ -11,7 +11,10 @@ import com.androx.app.data.SettingsRepository
 import com.androx.app.data.StatsRepository
 import com.androx.app.data.VariableRepository
 import com.androx.app.platform.AlarmScheduler
+import com.androx.app.core.state.CompositeStateReader
+import com.androx.app.core.state.LegacyStateReader
 import com.androx.app.platform.AndroidDeviceBridge
+import com.androx.app.platform.AndroidStateReader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,12 +36,19 @@ class AppContainer(app: Application) {
     val automations = AutomationRepository(flows)
 
     private val bridge = AndroidDeviceBridge(app)
+
+    /** Which Flows are running and how often each ran; also lets a Flow switch another on or off. */
+    private val activity = FlowActivity(flows, history)
+
     private val engine = FlowEngine(
         device = bridge,
         variables = variables.asValues(),
         findFlow = { id -> flows.get(id) },
+        state = CompositeStateReader(AndroidStateReader(app), LegacyStateReader(bridge)),
+        flowInfo = activity,
+        flowControl = activity,
     )
-    val runner = AutomationRunner(flows, history, variables, settings, engine, stats)
+    val runner = AutomationRunner(flows, history, variables, settings, engine, stats, activity)
 
     /** True once everything the UI needs from disk has been read. */
     val isReady: Boolean

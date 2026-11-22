@@ -1,6 +1,12 @@
 package com.androx.app.core.spec
 
 import com.androx.app.core.CheckIds
+import com.androx.app.core.Compare
+import com.androx.app.core.CompareOp
+import com.androx.app.core.state.StateCatalog
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import com.androx.app.core.OpIds
 import com.androx.app.core.TriggerIds
 import com.androx.app.core.enum
@@ -96,7 +102,23 @@ object BuiltinSpecs {
 
     // ── constraints ─────────────────────────────────────────────────────────────────────────
 
-    private fun constraintSpecs(): List<Spec> = listOf(
+    /** Legacy entries stay (older Flows use them) but pickers offer the state-based entry instead. */
+    private val superseded = mapOf(
+        CheckIds.BATTERY_LEVEL to "state:battery.level",
+        CheckIds.CHARGING to "state:battery.charging",
+        CheckIds.BATTERY_SAVER to "state:battery.saver",
+        CheckIds.WIFI_CONNECTED to "state:network.wifi",
+        CheckIds.AIRPLANE_MODE to "state:device.airplane",
+        CheckIds.SCREEN_ON to "state:device.screen",
+        CheckIds.RINGER_MODE to "state:device.ringer",
+    )
+
+    private fun constraintSpecs(): List<Spec> =
+        legacyConstraintSpecs().map { s -> superseded[s.id]?.let { s.copy(supersededBy = it) } ?: s } +
+            logicConstraintSpecs() +
+            StateCatalog.providers.map(StateSpecs::constraintSpec)
+
+    private fun legacyConstraintSpecs(): List<Spec> = listOf(
         Spec(
             kind = SpecKind.CONSTRAINT, id = CheckIds.BATTERY_LEVEL, category = SpecCategory.BATTERY,
             name = "Battery level", description = "Compares the battery percentage.",
@@ -200,7 +222,9 @@ object BuiltinSpecs {
         Choice(VariableMode.DELETE.name, "Remove"),
     )
 
-    private fun actionSpecs(): List<Spec> = listOf(
+    private fun actionSpecs(): List<Spec> = baseActionSpecs() + logicActionSpecs()
+
+    private fun baseActionSpecs(): List<Spec> = listOf(
         Spec(
             kind = SpecKind.ACTION, id = OpIds.NOTIFY, category = SpecCategory.NOTIFY,
             name = "Show notification", description = "Posts a notification.",
@@ -308,6 +332,7 @@ object BuiltinSpecs {
             kind = SpecKind.ACTION, id = OpIds.IF, category = SpecCategory.FLOW_CONTROL,
             name = "If / else", description = "Runs one list of steps when constraints pass and another when they don't.",
             iconKey = "source_branch", synonyms = listOf("condition", "branch", "otherwise"),
+            params = listOf(ParamSpec.Logic("condition", "Condition")),
             blocks = listOf(OpIds.BLOCK_THEN, OpIds.BLOCK_ELSE),
             summary = { "If / else" },
         ),
@@ -323,7 +348,11 @@ object BuiltinSpecs {
             kind = SpecKind.ACTION, id = OpIds.RUN_FLOW, category = SpecCategory.FLOW_CONTROL,
             name = "Run Flow", description = "Starts another Flow from this one.",
             iconKey = "play_circle_outline", synonyms = listOf("call", "start", "another flow", "run automation"),
-            params = listOf(ParamSpec.FlowRef("flowId", "Flow")),
+            params = listOf(
+                ParamSpec.FlowRef("flowId", "Flow"),
+                ParamSpec.Text("inputs", "Inputs", multiline = true, help = "One per line: name=value. The Flow reads them as {{name}}."),
+            ),
+            outputs = listOf(OutputSpec("result", "Value the Flow returned with Stop")),
             summary = { p -> p.str("flowName").ifBlank { p.str("flowId").take(8) } },
         ),
         Spec(
@@ -339,6 +368,359 @@ object BuiltinSpecs {
             iconKey = "clipboard_text_outline", synonyms = listOf("log", "note", "record"),
             params = listOf(ParamSpec.Text("message", "Message", required = true)),
             summary = { p -> p.str("message") },
+        ),
+    )
+
+    // ── logic and Flow constraints ──────────────────────────────────────────────────────────
+
+    private fun dateOnly(millis: Long): String = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+
+    private val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    private val flowStateChoices = listOf(
+        Choice("running", "is running"),
+        Choice("enabled", "is turned on"),
+        Choice("ran_recently", "ran in the last few minutes"),
+        Choice("runs_today", "ran a number of times today"),
+    )
+
+    private fun logicConstraintSpecs(): List<Spec> = listOf(
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.COMPARE, category = SpecCategory.LOGIC,
+            name = "Compare values", description = "Compares two values. Either side can use {{names}}.",
+            iconKey = "scale_balance", synonyms = listOf("equals", "greater", "less", "between", "contains", "regex", "matches"),
+            params = listOf(
+                ParamSpec.Text("left", "Value", required = true),
+                ParamSpec.Pick("op", "Is", Compare.allOps.map { Choice(it.name, it.label) }, CompareOp.EQ.name),
+                ParamSpec.Text("right", "Compared with"),
+                ParamSpec.Text("right2", "And", help = "Only used for \"between\"."),
+            ),
+            summary = { p ->
+                "${p.str("left")} ${Compare.describe(p.enum("op", CompareOp.EQ), p.str("right"), p.str("right2"))}"
+            },
+        ),
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.FLOW_STATE, category = SpecCategory.LOGIC,
+            name = "Flow state", description = "Checks whether a Flow is running, turned on, or has run recently.",
+            iconKey = "state_machine", synonyms = listOf("another flow", "ran today", "running", "enabled"),
+            params = listOf(
+                ParamSpec.FlowRef("flowId", "Flow"),
+                ParamSpec.Pick("what", "Check", flowStateChoices, "running"),
+                ParamSpec.Num("minutes", "Within", default = 60, min = 1, max = 10_080, unit = "min", help = "For \"ran in the last few minutes\"."),
+                ParamSpec.Pick("op", "Times today", Compare.numericOps.filter { it != CompareOp.BETWEEN }.map { Choice(it.name, it.label) }, CompareOp.GTE.name),
+                ParamSpec.Num("count", "Count", default = 1, min = 0, max = 10_000),
+            ),
+            summary = { p ->
+                val name = p.str("flowName").ifBlank { p.str("flowId").take(8) }
+                when (p.str("what", "running")) {
+                    "enabled" -> "$name is turned on"
+                    "ran_recently" -> "$name ran in the last ${p.int("minutes", 60)} min"
+                    "runs_today" -> "$name ran ${Compare.describe(p.enum("op", CompareOp.GTE), p.int("count", 1).toString())} times today"
+                    else -> "$name is running"
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.TRIGGERED_BY, category = SpecCategory.LOGIC,
+            name = "Started by", description = "Checks what started this run: you, a timer, boot or an event.",
+            iconKey = "play_circle_outline", synonyms = listOf("trigger", "source", "manual", "timer"),
+            params = listOf(
+                ParamSpec.Pick(
+                    "by", "Started by",
+                    listOf(Choice("manual", "You (manually)"), Choice("timer", "A timer"), Choice("boot", "Device start"), Choice("event", "An event")),
+                    "manual",
+                ),
+                ParamSpec.Text("eventType", "Event type", help = "Only for \"An event\". Leave empty for any.", templated = false),
+            ),
+            summary = { p ->
+                when (p.str("by", "manual")) {
+                    "timer" -> "Started by a timer"
+                    "boot" -> "Started by device start"
+                    "event" -> "Started by " + p.str("eventType").ifBlank { "any event" }
+                    else -> "Started manually"
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.DATE_RANGE, category = SpecCategory.DATE_TIME,
+            name = "Date range", description = "True between two dates, both included.",
+            iconKey = "calendar_range", synonyms = listOf("from", "until", "holiday", "season"),
+            params = listOf(ParamSpec.DateTime("fromMillis", "From"), ParamSpec.DateTime("toMillis", "To")),
+            summary = { p ->
+                val from = p.long("fromMillis", 0L)
+                val to = p.long("toMillis", 0L)
+                when {
+                    from > 0 && to > 0 -> "From ${dateOnly(from)} to ${dateOnly(to)}"
+                    from > 0 -> "From ${dateOnly(from)}"
+                    to > 0 -> "Until ${dateOnly(to)}"
+                    else -> "Any date"
+                }
+            },
+            validate = { p ->
+                val from = p.long("fromMillis", 0L)
+                val to = p.long("toMillis", 0L)
+                if (from > 0 && to > 0 && dateOnly(from) > dateOnly(to)) listOf("The start date must not be after the end date.") else emptyList()
+            },
+        ),
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.DAY_OF_MONTH, category = SpecCategory.DATE_TIME,
+            name = "Day of month", description = "True on the days of the month you choose.",
+            iconKey = "calendar_month", synonyms = listOf("1st", "15th", "end of month", "payday"),
+            params = listOf(
+                ParamSpec.IntSet("days", "Days", 1, 31),
+                ParamSpec.Toggle("last", "Also the last day of the month"),
+            ),
+            summary = { p ->
+                val last: List<String> = if (p.bool("last")) listOf("last") else emptyList()
+                val days: List<String> = p.intList("days").sorted().map { it.toString() } + last
+                "Day of month: " + days.joinToString(", ").ifBlank { "none" }
+            },
+            validate = { p -> if (p.intList("days").isEmpty() && !p.bool("last")) listOf("Choose at least one day.") else emptyList() },
+        ),
+        Spec(
+            kind = SpecKind.CONSTRAINT, id = CheckIds.MONTH_OF_YEAR, category = SpecCategory.DATE_TIME,
+            name = "Month", description = "True in the months you choose.",
+            iconKey = "calendar_blank", synonyms = listOf("january", "winter", "summer", "season"),
+            params = listOf(ParamSpec.IntSet("months", "Months", 1, 12, monthNames)),
+            summary = { p -> "Months: " + p.intList("months").sorted().mapNotNull { monthNames.getOrNull(it - 1) }.joinToString(", ").ifBlank { "none" } },
+            validate = { p -> if (p.intList("months").isEmpty()) listOf("Choose at least one month.") else emptyList() },
+        ),
+    )
+
+    // ── logic, loops and data actions ───────────────────────────────────────────────────────
+
+    private val textOps = listOf(
+        Choice("substring", "Part of the text"), Choice("replace", "Replace text"), Choice("regex_replace", "Replace with a pattern"),
+        Choice("regex_find", "Find with a pattern"), Choice("matches", "Matches a pattern"), Choice("split", "Split into a list"),
+        Choice("join", "Join a list"), Choice("upper", "UPPER CASE"), Choice("lower", "lower case"), Choice("title", "Title Case"),
+        Choice("trim", "Trim spaces"), Choice("pad", "Pad to a width"), Choice("length", "Length"), Choice("contains", "Contains"),
+    )
+
+    private val listOps = listOf(
+        Choice("create", "Create an empty list"), Choice("add", "Add an item"), Choice("remove_at", "Remove item number"),
+        Choice("remove_value", "Remove an item by value"), Choice("get", "Get item number"), Choice("length", "Count items"),
+        Choice("contains", "Contains"), Choice("sort", "Sort"), Choice("reverse", "Reverse"), Choice("join", "Join into text"),
+        Choice("clear", "Remove everything"),
+    )
+
+    private val dictOps = listOf(
+        Choice("set", "Set a key"), Choice("get", "Get a key"), Choice("remove", "Remove a key"), Choice("has", "Has a key"),
+        Choice("keys", "List the keys"), Choice("length", "Count keys"), Choice("clear", "Remove everything"),
+    )
+
+    private fun textLabel(id: String) = textOps.firstOrNull { it.value == id }?.label ?: id
+
+    private fun logicActionSpecs(): List<Spec> = listOf(
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.FOR_EACH, category = SpecCategory.FLOW_CONTROL,
+            name = "For each", description = "Runs steps once for every item of a list or dictionary. Gives {{item}}, {{index}} and {{key}}.",
+            iconKey = "format_list_bulleted", synonyms = listOf("loop", "list", "every", "iterate"),
+            params = listOf(
+                ParamSpec.Text("source", "List", required = true, multiline = true, help = "A list or dictionary such as {{names}}, or one item per line."),
+                ParamSpec.Text("itemName", "Call each item", default = "item", templated = false),
+            ),
+            blocks = listOf(OpIds.BLOCK_BODY),
+            outputs = listOf(OutputSpec("item", "Current item"), OutputSpec("index", "Round number", "number"), OutputSpec("key", "Key (dictionaries)")),
+            summary = { p -> "For each ${p.str("itemName", "item")} in ${p.str("source")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.WHILE, category = SpecCategory.FLOW_CONTROL,
+            name = "While", description = "Repeats steps while a condition holds. Always stops after a maximum number of rounds.",
+            iconKey = "sync", synonyms = listOf("loop", "until", "repeat while"),
+            params = listOf(
+                ParamSpec.Logic("condition", "While"),
+                ParamSpec.Num("max", "At most", default = 100, min = 1, max = 1000, unit = "rounds"),
+            ),
+            blocks = listOf(OpIds.BLOCK_BODY),
+            outputs = listOf(OutputSpec("index", "Round number", "number")),
+            summary = { p -> "While the condition holds (up to ${p.int("max", 100)} rounds)" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.BREAK, category = SpecCategory.FLOW_CONTROL,
+            name = "Leave loop", description = "Stops the loop it is in and carries on after it.",
+            iconKey = "exit_to_app", synonyms = listOf("break", "exit loop"),
+            summary = { "Leave the loop" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.CONTINUE, category = SpecCategory.FLOW_CONTROL,
+            name = "Next round", description = "Skips the rest of this round of the loop.",
+            iconKey = "skip_next", synonyms = listOf("continue", "skip"),
+            summary = { "Go to the next round" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.STOP, category = SpecCategory.FLOW_CONTROL,
+            name = "Stop Flow", description = "Ends the Flow here. It can finish normally, fail with a message, or count as skipped.",
+            iconKey = "stop_circle_outline", synonyms = listOf("end", "exit", "return", "abort", "finish"),
+            params = listOf(
+                ParamSpec.Pick(
+                    "outcome", "Result",
+                    listOf(Choice("success", "Finish normally"), Choice("failed", "Fail"), Choice("skipped", "Count as skipped")),
+                    "success",
+                ),
+                ParamSpec.Text("message", "Message"),
+                ParamSpec.Text("result", "Value to return", help = "What a Flow that called this one gets back."),
+            ),
+            summary = { p ->
+                val how = when (p.str("outcome", "success")) {
+                    "failed" -> "fail"
+                    "skipped" -> "skip"
+                    else -> "finish"
+                }
+                "Stop and $how" + if (p.str("message").isNotBlank()) ": ${p.str("message")}" else ""
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.WAIT_UNTIL, category = SpecCategory.FLOW_CONTROL,
+            name = "Wait until", description = "Waits for a condition to become true, for up to 10 seconds. Counts toward the run's wait budget.",
+            iconKey = "timer_sand_complete", synonyms = listOf("wait for", "until", "poll"),
+            params = listOf(
+                ParamSpec.Logic("condition", "Wait until"),
+                ParamSpec.Num("timeoutSeconds", "Give up after", default = 10, min = 1, max = 10, unit = "s"),
+                ParamSpec.Num("pollSeconds", "Check every", default = 1, min = 1, max = 5, unit = "s"),
+                ParamSpec.Pick("onTimeout", "If it never happens", listOf(Choice("fail", "Fail the step"), Choice("continue", "Carry on")), "fail"),
+            ),
+            outputs = listOf(OutputSpec("met", "Condition became true", "boolean")),
+            summary = { p -> "Wait up to ${p.int("timeoutSeconds", 10)} s for the condition" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.TRY, category = SpecCategory.FLOW_CONTROL,
+            name = "Try / on error", description = "Runs steps and, if one fails, runs a second list instead of failing the Flow. Gives {{error.message}}.",
+            iconKey = "shield_alert_outline", synonyms = listOf("catch", "error handling", "fallback", "rescue"),
+            blocks = listOf(OpIds.BLOCK_TRY, OpIds.BLOCK_CATCH),
+            outputs = listOf(OutputSpec("error.message", "What went wrong")),
+            summary = { "Try, and handle errors" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.CALCULATE, category = SpecCategory.VARIABLES,
+            name = "Calculate", description = "Does maths: + - * / % ^, brackets, min, max, round, floor, ceil, abs, sqrt, pow. Variables work by name.",
+            iconKey = "calculator", synonyms = listOf("math", "add", "multiply", "formula", "percent"),
+            params = listOf(ParamSpec.Text("expression", "Calculation", required = true, help = "For example (battery + 5) * 2")),
+            outputs = listOf(OutputSpec("result", "The answer", "number")),
+            summary = { p -> p.str("expression") },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.TEXT, category = SpecCategory.VARIABLES,
+            name = "Text tools", description = "Cuts, replaces, splits, joins and changes text, with patterns if you need them.",
+            iconKey = "format_text", synonyms = listOf("string", "regex", "replace", "split", "substring", "uppercase"),
+            params = listOf(
+                ParamSpec.Pick("operation", "Do", textOps, "trim"),
+                ParamSpec.Text("input", "Text", multiline = true),
+                ParamSpec.Text("a", "First setting", help = "Part: start position (0 is the first character). Replace: text to find. Pattern: the pattern. Split/Join: the separator. Pad: the width."),
+                ParamSpec.Text("b", "Second setting", help = "Part: length. Replace: the new text. Pad: the fill character."),
+            ),
+            outputs = listOf(OutputSpec("result", "The result")),
+            summary = { p -> "${textLabel(p.str("operation", "trim"))}: ${p.str("input")}" },
+            validate = { p ->
+                val op = p.str("operation", "trim")
+                when {
+                    op in setOf("replace", "regex_replace", "regex_find", "matches", "contains") && p.str("a").isEmpty() -> listOf("Say what to look for.")
+                    op in setOf("substring", "pad") && p.str("a").trim().toIntOrNull() == null -> listOf("The first setting must be a whole number.")
+                    else -> emptyList()
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.JSON, category = SpecCategory.VARIABLES,
+            name = "Read JSON", description = "Parses JSON text and optionally picks a value out of it, for example user.items.0.name.",
+            iconKey = "code_json", synonyms = listOf("parse", "api response", "dictionary", "object"),
+            params = listOf(
+                ParamSpec.Text("json", "JSON", required = true, multiline = true),
+                ParamSpec.Text("path", "Path", help = "Dots walk into objects and lists. Leave empty for everything.", templated = false),
+            ),
+            outputs = listOf(OutputSpec("result", "The value")),
+            summary = { p -> if (p.str("path").isBlank()) "Parse JSON" else "Read ${p.str("path")} from JSON" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.DATE_FORMAT, category = SpecCategory.DATE_TIME,
+            name = "Format date and time", description = "Writes the current time, or a saved timestamp, in the layout you choose.",
+            iconKey = "calendar_clock", synonyms = listOf("date", "time", "clock", "timestamp", "now"),
+            params = listOf(
+                ParamSpec.Pick("from", "Use", listOf(Choice("now", "The current time"), Choice("timestamp", "A timestamp (milliseconds)")), "now"),
+                ParamSpec.Text("timestamp", "Timestamp", help = "Only for \"A timestamp\"."),
+                ParamSpec.Text("pattern", "Layout", default = "yyyy-MM-dd HH:mm", help = "For example EEEE d MMMM or HH:mm:ss.", templated = false),
+            ),
+            outputs = listOf(OutputSpec("result", "The formatted date")),
+            summary = { p -> "${if (p.str("from", "now") == "now") "Now" else "Timestamp"} as ${p.str("pattern", "yyyy-MM-dd HH:mm")}" },
+            validate = { p ->
+                try {
+                    DateTimeFormatter.ofPattern(p.str("pattern", "yyyy-MM-dd HH:mm"))
+                    emptyList()
+                } catch (e: IllegalArgumentException) {
+                    listOf("That layout isn't valid.")
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.RANDOM, category = SpecCategory.VARIABLES,
+            name = "Random", description = "A random whole number between two values, or a random item from a list.",
+            iconKey = "dice_multiple", synonyms = listOf("dice", "pick", "choose", "chance"),
+            params = listOf(
+                ParamSpec.Pick("mode", "Pick", listOf(Choice("number", "A number"), Choice("item", "An item from a list")), "number"),
+                ParamSpec.Num("min", "From", default = 1),
+                ParamSpec.Num("max", "To", default = 100),
+                ParamSpec.Text("list", "List", multiline = true, help = "For \"An item\": a list such as {{names}}, or one item per line."),
+            ),
+            outputs = listOf(OutputSpec("result", "The random value")),
+            summary = { p -> if (p.str("mode", "number") == "item") "Random item from ${p.str("list")}" else "Random ${p.int("min", 1)} to ${p.int("max", 100)}" },
+            validate = { p -> if (p.str("mode", "number") == "number" && p.int("min", 1) > p.int("max", 100)) listOf("\"From\" must not be higher than \"To\".") else emptyList() },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.LIST_OP, category = SpecCategory.VARIABLES,
+            name = "List", description = "Keeps a list in a variable: add, remove, look up, count, sort, join.",
+            iconKey = "format_list_numbered", synonyms = listOf("array", "collection", "queue", "stack"),
+            params = listOf(
+                ParamSpec.VariableName("variable", "List variable"),
+                ParamSpec.Pick("operation", "Do", listOps, "add"),
+                ParamSpec.Text("value", "Value", help = "Item, or separator for \"Join into text\"."),
+                ParamSpec.Num("index", "Item number", default = 1, min = 1, help = "Counting from 1."),
+            ),
+            outputs = listOf(OutputSpec("result", "The answer (item, count, text…)")),
+            summary = { p -> "${listOps.firstOrNull { it.value == p.str("operation", "add") }?.label ?: "List"} · ${p.str("variable")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.DICT_OP, category = SpecCategory.VARIABLES,
+            name = "Dictionary", description = "Keeps named values in a variable: set, get, remove, list the keys.",
+            iconKey = "book_open_variant", synonyms = listOf("map", "object", "key value", "record"),
+            params = listOf(
+                ParamSpec.VariableName("variable", "Dictionary variable"),
+                ParamSpec.Pick("operation", "Do", dictOps, "set"),
+                ParamSpec.Text("key", "Key", templated = true),
+                ParamSpec.Text("value", "Value"),
+            ),
+            outputs = listOf(OutputSpec("result", "The answer (value, keys, count…)")),
+            summary = { p -> "${dictOps.firstOrNull { it.value == p.str("operation", "set") }?.label ?: "Dictionary"} · ${p.str("variable")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.SET_LOCAL, category = SpecCategory.VARIABLES,
+            name = "Set local value", description = "A value that lives only during this run. It can be text, a number, true/false or JSON.",
+            iconKey = "variable_box", synonyms = listOf("temporary", "local variable", "typed value"),
+            params = listOf(
+                ParamSpec.VariableName("name", "Name"),
+                ParamSpec.Pick(
+                    "valueType", "Type",
+                    listOf(Choice("text", "Text"), Choice("number", "Number"), Choice("boolean", "True / false"), Choice("json", "List or dictionary (JSON)")),
+                    "text",
+                ),
+                ParamSpec.Text("value", "Value", multiline = true),
+            ),
+            summary = { p -> "${p.str("name")} = ${p.str("value")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.FLOW_ENABLE, category = SpecCategory.FLOW_CONTROL,
+            name = "Turn a Flow on or off", description = "Switches another Flow on, off, or flips it.",
+            iconKey = "toggle_switch", synonyms = listOf("enable", "disable", "activate", "pause a flow"),
+            params = listOf(
+                ParamSpec.FlowRef("flowId", "Flow"),
+                ParamSpec.Pick("action", "Do", listOf(Choice("enable", "Turn on"), Choice("disable", "Turn off"), Choice("toggle", "Switch")), "enable"),
+            ),
+            summary = { p ->
+                val name = p.str("flowName").ifBlank { p.str("flowId").take(8) }
+                when (p.str("action", "enable")) {
+                    "disable" -> "Turn off $name"
+                    "toggle" -> "Switch $name"
+                    else -> "Turn on $name"
+                }
+            },
         ),
     )
 }
