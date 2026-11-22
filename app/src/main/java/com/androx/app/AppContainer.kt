@@ -15,6 +15,8 @@ import com.androx.app.core.state.CompositeStateReader
 import com.androx.app.core.state.LegacyStateReader
 import com.androx.app.platform.AndroidDeviceBridge
 import com.androx.app.platform.AndroidStateReader
+import com.androx.app.platform.AndroidSystemActions
+import com.androx.app.platform.ForegroundTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +39,12 @@ class AppContainer(app: Application) {
 
     private val bridge = AndroidDeviceBridge(app)
 
+    /** Knows whether an Androx screen is showing, so "Open link" can fall back to a tappable notification. */
+    private val foreground = ForegroundTracker().also { app.registerActivityLifecycleCallbacks(it) }
+
+    /** Device, apps and notification actions; also answers "which special access is granted?" for the pickers. */
+    val system = AndroidSystemActions(app, foreground)
+
     /** Which Flows are running and how often each ran; also lets a Flow switch another on or off. */
     private val activity = FlowActivity(flows, history)
 
@@ -47,6 +55,7 @@ class AppContainer(app: Application) {
         state = CompositeStateReader(AndroidStateReader(app), LegacyStateReader(bridge)),
         flowInfo = activity,
         flowControl = activity,
+        system = system,
     )
     val runner = AutomationRunner(flows, history, variables, settings, engine, stats, activity)
 

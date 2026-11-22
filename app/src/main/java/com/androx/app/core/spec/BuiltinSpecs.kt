@@ -222,7 +222,7 @@ object BuiltinSpecs {
         Choice(VariableMode.DELETE.name, "Remove"),
     )
 
-    private fun actionSpecs(): List<Spec> = baseActionSpecs() + logicActionSpecs()
+    private fun actionSpecs(): List<Spec> = baseActionSpecs() + logicActionSpecs() + deviceActionSpecs()
 
     private fun baseActionSpecs(): List<Spec> = listOf(
         Spec(
@@ -270,6 +270,7 @@ object BuiltinSpecs {
             params = listOf(
                 ParamSpec.Pick("stream", "Stream", VolumeStream.entries.map { Choice(it.name, volumeStreamLabel(it)) }, VolumeStream.MEDIA.name),
                 ParamSpec.Num("percent", "Level", default = 50, min = 0, max = 100, unit = "%"),
+                ParamSpec.Toggle("restore", "Put it back when the Flow ends"),
             ),
             summary = { p -> "${volumeStreamLabel(p.enum("stream", VolumeStream.MEDIA))} to ${p.int("percent", 50)}%" },
         ),
@@ -721,6 +722,221 @@ object BuiltinSpecs {
                     else -> "Turn on $name"
                 }
             },
+        ),
+    )
+
+    // ── device, apps and notification actions ───────────────────────────────────────────────
+
+    private val restoreToggle = ParamSpec.Toggle("restore", "Put it back when the Flow ends", help = "Restored even if a later step fails.")
+
+    private fun deviceActionSpecs(): List<Spec> = listOf(
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.RINGER_MODE, category = SpecCategory.SOUND,
+            name = "Set ringer mode", description = "Switches the phone between ringing, vibrating and silent. Silent needs Do Not Disturb access.",
+            iconKey = "volume_off", synonyms = listOf("silent", "mute", "vibrate", "ring", "make phone silent"),
+            params = listOf(
+                ParamSpec.Pick("mode", "Ringer", RingerMode.entries.map { Choice(it.name, ringerWord(it)) }, RingerMode.SILENT.name),
+                restoreToggle,
+            ),
+            permissions = listOf(Perm.DND_ACCESS), reliability = Reliability.GOOD,
+            summary = { p -> "Ringer: ${ringerWord(p.enum("mode", RingerMode.SILENT)).lowercase()}" + if (p.bool("restore")) " (temporarily)" else "" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.DND, category = SpecCategory.SOUND,
+            name = "Do Not Disturb", description = "Turns Do Not Disturb on or off, or changes how much it lets through.",
+            iconKey = "minus_circle", synonyms = listOf("dnd", "quiet", "focus", "sleep", "silence"),
+            params = listOf(
+                ParamSpec.Pick(
+                    "filter", "Set to",
+                    listOf(Choice("off", "Off"), Choice("priority", "Priority only"), Choice("alarms", "Alarms only"), Choice("total_silence", "Total silence")),
+                    "priority",
+                ),
+                restoreToggle,
+            ),
+            permissions = listOf(Perm.DND_ACCESS),
+            summary = { p ->
+                val label = when (p.str("filter", "priority")) {
+                    "off" -> "off"
+                    "alarms" -> "alarms only"
+                    "total_silence" -> "total silence"
+                    else -> "priority only"
+                }
+                "Do Not Disturb: $label" + if (p.bool("restore")) " (temporarily)" else ""
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.VOLUME_ADJUST, category = SpecCategory.SOUND,
+            name = "Change volume", description = "Turns a volume up or down by one step, or mutes and unmutes it.",
+            iconKey = "volume_plus", synonyms = listOf("louder", "quieter", "mute", "unmute", "volume up", "volume down"),
+            params = listOf(
+                ParamSpec.Pick("stream", "Stream", VolumeStream.entries.map { Choice(it.name, volumeStreamLabel(it)) }, VolumeStream.MEDIA.name),
+                ParamSpec.Pick("action", "Do", listOf(Choice("up", "Turn up"), Choice("down", "Turn down"), Choice("mute", "Mute"), Choice("unmute", "Unmute")), "down"),
+                restoreToggle,
+            ),
+            outputs = listOf(OutputSpec("result", "Volume afterwards", "number")),
+            summary = { p -> "${volumeStreamLabel(p.enum("stream", VolumeStream.MEDIA))}: ${p.str("action", "down")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.BRIGHTNESS, category = SpecCategory.DEVICE,
+            name = "Set brightness", description = "Sets the screen brightness, or switches to automatic brightness.",
+            iconKey = "brightness_6", synonyms = listOf("dim", "brighter", "screen", "light"),
+            params = listOf(
+                ParamSpec.Pick("mode", "Mode", listOf(Choice("manual", "Fixed level"), Choice("auto", "Automatic")), "manual"),
+                ParamSpec.Num("percent", "Level", default = 50, min = 0, max = 100, unit = "%"),
+                restoreToggle,
+            ),
+            permissions = listOf(Perm.WRITE_SETTINGS),
+            summary = { p -> if (p.str("mode", "manual") == "auto") "Automatic brightness" else "Brightness ${p.int("percent", 50)}%" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.SCREEN_TIMEOUT, category = SpecCategory.DEVICE,
+            name = "Set screen timeout", description = "Changes how long the screen stays on when you aren't touching it.",
+            iconKey = "timer_outline", synonyms = listOf("sleep", "screen off", "display timeout"),
+            params = listOf(
+                ParamSpec.Num("seconds", "Turn off after", default = 60, min = 15, max = 1_800, unit = "s"),
+                restoreToggle,
+            ),
+            permissions = listOf(Perm.WRITE_SETTINGS),
+            summary = { p -> "Screen off after ${p.int("seconds", 60)} s" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.AUTO_ROTATE, category = SpecCategory.DEVICE,
+            name = "Auto-rotate", description = "Turns automatic screen rotation on or off, or flips it.",
+            iconKey = "screen_rotation", synonyms = listOf("rotation", "orientation", "landscape"),
+            params = listOf(
+                ParamSpec.Pick("action", "Do", listOf(Choice("on", "Turn on"), Choice("off", "Turn off"), Choice("toggle", "Switch")), "toggle"),
+                restoreToggle,
+            ),
+            permissions = listOf(Perm.WRITE_SETTINGS),
+            outputs = listOf(OutputSpec("result", "Auto-rotate is on", "boolean")),
+            summary = { p -> "Auto-rotate: ${p.str("action", "toggle")}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.KEEP_AWAKE, category = SpecCategory.DEVICE,
+            name = "Keep phone awake", description = "Stops the phone sleeping until this run ends, for at most 10 minutes.",
+            iconKey = "sleep_off", synonyms = listOf("wake lock", "stay on", "caffeine"),
+            params = listOf(ParamSpec.Num("minutes", "At most", default = 2, min = 1, max = 10, unit = "min")),
+            batteryCost = BatteryCost.MEDIUM,
+            summary = { p -> "Awake for up to ${p.int("minutes", 2)} min" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.MEDIA_KEY, category = SpecCategory.SOUND,
+            name = "Media control", description = "Presses a media key: play, pause, next, previous or stop.",
+            iconKey = "play_pause", synonyms = listOf("music", "play", "pause", "skip", "next song"),
+            params = listOf(
+                ParamSpec.Pick(
+                    "key", "Press",
+                    listOf(Choice("play_pause", "Play / pause"), Choice("play", "Play"), Choice("pause", "Pause"), Choice("next", "Next"), Choice("previous", "Previous"), Choice("stop", "Stop")),
+                    "play_pause",
+                ),
+            ),
+            reliability = Reliability.BEST_EFFORT,
+            summary = { p -> "Media: ${p.str("key", "play_pause").replace('_', ' ')}" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.OPEN_URL, category = SpecCategory.DEVICE,
+            name = "Open link", description = "Opens a web, email, phone or map link. When Androx is in the background it posts a notification to tap instead.",
+            iconKey = "open_in_new", synonyms = listOf("website", "browser", "url", "web", "call", "email"),
+            params = listOf(ParamSpec.Text("url", "Link", required = true, help = "http://, https://, mailto:, tel: or geo:")),
+            reliability = Reliability.BEST_EFFORT,
+            outputs = listOf(OutputSpec("result", "What happened")),
+            summary = { p -> p.str("url") },
+            validate = { p ->
+                val url = p.str("url").trim()
+                if (url.isEmpty() || url.contains("{{") || listOf("http://", "https://", "mailto:", "tel:", "geo:").any { url.startsWith(it, ignoreCase = true) }) {
+                    emptyList()
+                } else {
+                    listOf("The link must start with http://, https://, mailto:, tel: or geo:.")
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.LAUNCH_APP, category = SpecCategory.DEVICE,
+            name = "Open app", description = "Opens an installed app. When Androx is in the background it posts a notification to tap instead.",
+            iconKey = "application", synonyms = listOf("launch", "start app", "run app"),
+            params = listOf(ParamSpec.Text("packageName", "App", required = true, templated = false, help = "The app's package name, for example com.android.chrome.")),
+            reliability = Reliability.BEST_EFFORT,
+            outputs = listOf(OutputSpec("result", "What happened")),
+            summary = { p -> p.str("packageName") },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.SHARE_TEXT, category = SpecCategory.DEVICE,
+            name = "Share text", description = "Opens the share sheet with some text. When Androx is in the background it posts a notification to tap instead.",
+            iconKey = "share_variant", synonyms = listOf("send", "message"),
+            params = listOf(
+                ParamSpec.Text("text", "Text", required = true, multiline = true),
+                ParamSpec.Text("subject", "Subject"),
+            ),
+            reliability = Reliability.BEST_EFFORT,
+            outputs = listOf(OutputSpec("result", "What happened")),
+            summary = { p -> p.str("text") },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.SET_ALARM, category = SpecCategory.DATE_TIME,
+            name = "Set alarm", description = "Creates an alarm in the Clock app.",
+            iconKey = "alarm_plus", synonyms = listOf("wake me", "clock", "reminder"),
+            params = listOf(
+                ParamSpec.TimeOfDay("hour", "minute", "Time", defaultHour = 7),
+                ParamSpec.Text("label", "Label"),
+                ParamSpec.Toggle("skipUi", "Don't open the Clock app", default = true),
+            ),
+            reliability = Reliability.BEST_EFFORT,
+            outputs = listOf(OutputSpec("result", "What happened")),
+            summary = { p -> "Alarm at ${formatClock(p.int("hour", 7), p.int("minute", 0))}" + if (p.str("label").isNotBlank()) " – ${p.str("label")}" else "" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.SET_TIMER, category = SpecCategory.DATE_TIME,
+            name = "Set timer", description = "Starts a countdown timer in the Clock app.",
+            iconKey = "timer_sand", synonyms = listOf("countdown", "egg timer", "stopwatch"),
+            params = listOf(
+                ParamSpec.Num("seconds", "Length", default = 300, min = 1, max = 86_400, unit = "s"),
+                ParamSpec.Text("label", "Label"),
+            ),
+            reliability = Reliability.BEST_EFFORT,
+            outputs = listOf(OutputSpec("result", "What happened")),
+            summary = { p -> "Timer for ${p.int("seconds", 300)} s" + if (p.str("label").isNotBlank()) " – ${p.str("label")}" else "" },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.NOTIFICATION, category = SpecCategory.NOTIFY,
+            name = "Notification", description = "A full notification: importance, progress bar, auto-dismiss and up to three buttons that run Flows.",
+            iconKey = "bell_plus_outline", synonyms = listOf("alert", "button", "progress", "ongoing", "reminder"),
+            params = listOf(
+                ParamSpec.Text("id", "Name", default = "default", templated = false, help = "Use the same name later to update or clear it."),
+                ParamSpec.Text("title", "Title", default = "Androx"),
+                ParamSpec.Text("text", "Message", multiline = true),
+                ParamSpec.Pick("importance", "Importance", listOf(Choice("low", "Quiet"), Choice("default", "Normal"), Choice("high", "Pops up")), "default"),
+                ParamSpec.Toggle("ongoing", "Keep it until I clear it"),
+                ParamSpec.Num("progress", "Progress bar", default = -1, min = -1, max = 100, unit = "%", help = "-1 shows none."),
+                ParamSpec.Toggle("autoDismiss", "Remove it automatically"),
+                ParamSpec.Num("dismissSeconds", "After", default = 30, min = 1, max = 86_400, unit = "s"),
+                ParamSpec.Text("b1Label", "Button 1", templated = true),
+                ParamSpec.FlowRef("b1FlowId", "Button 1 runs", nameKey = "b1FlowName", required = false),
+                ParamSpec.Text("b2Label", "Button 2", templated = true),
+                ParamSpec.FlowRef("b2FlowId", "Button 2 runs", nameKey = "b2FlowName", required = false),
+                ParamSpec.Text("b3Label", "Button 3", templated = true),
+                ParamSpec.FlowRef("b3FlowId", "Button 3 runs", nameKey = "b3FlowName", required = false),
+            ),
+            permissions = listOf(Perm.NOTIFICATIONS),
+            outputs = listOf(OutputSpec("result", "Notification name")),
+            summary = { p ->
+                val buttons = (1..3).count { p.str("b${it}Label").isNotBlank() && p.str("b${it}FlowId").isNotBlank() }
+                p.str("title", "Androx").ifBlank { "Androx" } + (if (p.str("text").isNotBlank()) " – ${p.str("text")}" else "") +
+                    if (buttons > 0) " · $buttons button${if (buttons == 1) "" else "s"}" else ""
+            },
+            validate = { p ->
+                (1..3).mapNotNull { n ->
+                    val label = p.str("b${n}Label").isNotBlank()
+                    val flow = p.str("b${n}FlowId").isNotBlank()
+                    if (label != flow) "Button $n needs both a name and a Flow to run." else null
+                }
+            },
+        ),
+        Spec(
+            kind = SpecKind.ACTION, id = OpIds.CLEAR_NOTIFICATION, category = SpecCategory.NOTIFY,
+            name = "Clear notification", description = "Removes a notification that a Notification step posted.",
+            iconKey = "bell_off_outline", synonyms = listOf("dismiss", "remove notification"),
+            params = listOf(ParamSpec.Text("id", "Name", default = "default", templated = false)),
+            summary = { p -> "Clear \"${p.str("id", "default")}\"" },
         ),
     )
 }

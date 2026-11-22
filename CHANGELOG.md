@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.0.2-alpha5 (Zip V: device, apps and notification actions)
+
+New actions, all with settings, validation, summaries and permission explanations. The current screens don't offer them
+yet; they arrive with the new editors.
+
+- **Sound and device:** Set ringer mode, Do Not Disturb, Change volume, Set brightness, Set screen timeout, Auto-rotate,
+  Keep phone awake (released when the run ends, never more than 10 minutes), Media control.
+- **Temporary changes:** each settings action has "Put it back when the Flow ends". The old value is read first and
+  restored newest-first when the run ends, even if a later step fails or the run is stopped. A restore that fails is logged
+  and never blocks the others. The older "Set volume" action gained the same switch.
+- **Apps and links:** Open link (web, email, phone, map only), Open app, Share text, Set alarm, Set timer. Android stops apps
+  in the background from opening screens, so when no Androx screen is showing these post a notification to tap instead,
+  and the log says so.
+- **Notification builder:** name (to update or clear it later), importance, ongoing, progress bar, auto-dismiss and up to
+  three buttons that run Flows; Clear notification. Button taps run the Flow with `{notification.id}` and
+  `{notification.button}`.
+- **Permissions:** Do Not Disturb access and Modify system settings are explained in plain English with the exact Settings
+  path; the pickers show "Needs permission" until granted. Nothing is requested at install.
+- **Manifest:** WAKE_LOCK, SET_ALARM, ACCESS_NOTIFICATION_POLICY, WRITE_SETTINGS, a launcher query so "Open app" works
+  without the all-apps permission, and a non-exported receiver for notification buttons.
+- 24 new unit tests.
+
+Left for later, with reasons: "restore after N minutes" (needs a persisted timer, arrives with the trigger hub), dialogs
+and prompts (need a screen on top, arrive with the shell), file and folder actions (need the folder picker), wallpaper,
+biometric, QR and speak-the-time (low value for the effort).
+
 ## 0.0.2-alpha4 (Zip IV: device state, constraints, logic and data actions)
 
 The engine and registries gain their finished constraint set and the logic and data actions. The current screens don't

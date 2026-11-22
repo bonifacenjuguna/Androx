@@ -46,6 +46,13 @@ class AutomationRunner(
         return runAndRecord(flow, RunSource.MANUAL)
     }
 
+    /** Runs a Flow because of an event, such as a tap on a notification button. Works for turned-off Flows too, like a manual run. */
+    suspend fun runForEvent(id: String, event: Event): ExecutionRecord? {
+        awaitData()
+        val flow = flows.get(id)?.takeIf { !it.inTrash } ?: return null
+        return runAndRecord(flow, RunSource.MANUAL, event)
+    }
+
     /** A dry run for the editor: describes every step, changes nothing, and is not added to History. */
     suspend fun simulate(id: String): ExecutionRecord? {
         awaitData()

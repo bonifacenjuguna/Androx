@@ -34,6 +34,7 @@ import com.androx.app.model.FlashlightMode
 import com.androx.app.model.RunSource
 import com.androx.app.model.VariableMode
 import com.androx.app.model.VolumeStream
+import com.androx.app.model.volumeStreamLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -69,6 +70,9 @@ interface ActionEnv {
 
     /** Sets a value that lives only until this run ends. */
     fun setLocal(name: String, value: Value)
+
+    /** Registers [block] to run when the whole run ends, even if it fails or is stopped (newest first). Used to restore settings. */
+    fun onRunEnd(description: String, block: () -> Unit)
 }
 
 /** One executable action. Return the step's result (saved to a variable when the step asks for it) or null. */
@@ -108,6 +112,7 @@ class FlowEngine(
     private val flowInfo: FlowInfo = NoFlowInfo,
     private val flowControl: FlowControl? = null,
     private val random: Random = Random.Default,
+    private val system: SystemActions? = null,
 ) {
     companion object {
         const val MAX_DEPTH = 4
@@ -135,6 +140,7 @@ class FlowEngine(
         var waitedMs = 0L
         var steps = 0
         val results = HashMap<String, Value>()
+        val cleanups = ArrayList<Pair<String, () -> Unit>>()
     }
 
     private inner class Ctx(
@@ -169,6 +175,10 @@ class FlowEngine(
 
         override fun setLocal(name: String, value: Value) {
             state.results[name] = value
+        }
+
+        override fun onRunEnd(description: String, block: () -> Unit) {
+            state.cleanups += description to block
         }
 
         fun checkContext() = CheckContext(render = { text -> render(text) }, source = state.source, event = state.event)
@@ -226,6 +236,8 @@ class FlowEngine(
         } catch (e: Exception) {
             status = ExecutionStatus.FAILED
             message = e.message ?: e.javaClass.simpleName
+        } finally {
+            runCleanups(state, logs)
         }
         return ExecutionRecord(
             id = UUID.randomUUID().toString(),
@@ -238,6 +250,19 @@ class FlowEngine(
             message = message,
             logs = logs,
         )
+    }
+
+    /** Puts back what the run changed temporarily, newest first. A failing restore is logged and never stops the others. */
+    private fun runCleanups(state: RunState, logs: MutableList<String>) {
+        for ((description, block) in state.cleanups.asReversed()) {
+            try {
+                block()
+                logs += "  restored: $description"
+            } catch (e: Exception) {
+                logs += "  couldn't restore ($description): ${e.message ?: e.javaClass.simpleName}"
+            }
+        }
+        state.cleanups.clear()
     }
 
     // ── running a Flow ──────────────────────────────────────────────────────────────────────
@@ -366,7 +391,7 @@ class FlowEngine(
     private val effects = setOf(
         OpIds.NOTIFY, OpIds.TOAST, OpIds.VIBRATE, OpIds.SPEAK, OpIds.CLIPBOARD, OpIds.PLAY_SOUND,
         OpIds.SET_VOLUME, OpIds.FLASHLIGHT, OpIds.RUN_SCRIPT, OpIds.FLOW_ENABLE,
-    )
+    ) + DEVICE_OP_IDS
 
     private val actions: Map<String, ActionExecutor> = buildMap {
         put(OpIds.NOTIFY, ActionExecutor { p, env -> env.device.showNotification(env.render(p.str("title", "Androx")), env.render(p.str("message"))); null })
@@ -376,7 +401,17 @@ class FlowEngine(
         put(OpIds.CLIPBOARD, ActionExecutor { p, env -> env.device.copyToClipboard(env.render(p.str("text"))); null })
         put(OpIds.PLAY_SOUND, ActionExecutor { _, env -> env.device.playNotificationSound(); null })
         put(OpIds.SET_VOLUME, ActionExecutor { p, env ->
-            env.device.setVolume(p.enum("stream", VolumeStream.MEDIA), p.int("percent", 50).coerceIn(0, 100))
+            val stream = p.enum("stream", VolumeStream.MEDIA)
+            val sys = system
+            val before = if (p.bool("restore")) {
+                (sys ?: throw ActionException("Restoring the volume needs device actions.")).volumePercent(stream)
+            } else {
+                null
+            }
+            env.device.setVolume(stream, p.int("percent", 50).coerceIn(0, 100))
+            if (before != null && sys != null) {
+                env.onRunEnd("${volumeStreamLabel(stream)} volume back to $before%") { sys.setVolumePercent(stream, before) }
+            }
             null
         })
         put(OpIds.FLASHLIGHT, ActionExecutor { p, env ->
@@ -396,6 +431,7 @@ class FlowEngine(
         put(OpIds.DICT_OP, ActionExecutor { p, env -> dictTool(p, env) })
         put(OpIds.SET_LOCAL, ActionExecutor { p, env -> setLocalValue(p, env) })
         put(OpIds.FLOW_ENABLE, ActionExecutor { p, env -> flowEnable(p, env) })
+        putAll(deviceActions(system))
         putAll(extraActions)
     }
 

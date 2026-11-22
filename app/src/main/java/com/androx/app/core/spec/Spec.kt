@@ -50,8 +50,10 @@ enum class SpecStatus(val label: String) {
 data class PermissionNeed(val id: String, val label: String)
 
 object Perm {
-    val NOTIFICATIONS = PermissionNeed("notifications", "Notifications")
-    val EXACT_ALARMS = PermissionNeed("exact_alarms", "Exact alarms")
+    val NOTIFICATIONS = PermissionNeed(com.androx.app.core.Permissions.NOTIFICATIONS, "Notifications")
+    val EXACT_ALARMS = PermissionNeed(com.androx.app.core.Permissions.EXACT_ALARMS, "Exact alarms")
+    val DND_ACCESS = PermissionNeed(com.androx.app.core.Permissions.DND_ACCESS, "Do Not Disturb access")
+    val WRITE_SETTINGS = PermissionNeed(com.androx.app.core.Permissions.WRITE_SETTINGS, "Modify system settings")
 }
 
 data class Choice(val value: String, val label: String)
@@ -159,6 +161,8 @@ sealed interface ParamSpec {
         override val help: String = "",
         /** Companion key that caches the Flow's name for display. */
         val nameKey: String = "flowName",
+        /** False for optional choices such as a notification button's Flow. */
+        val required: Boolean = true,
     ) : ParamSpec
 }
 
@@ -186,7 +190,7 @@ fun validateParams(schema: List<ParamSpec>, params: JsonObject): List<String> {
             }
             is ParamSpec.Days -> if (params.intList(p.key).any { it !in 1..7 }) problems += "${p.label} has an invalid day."
             is ParamSpec.VariableName -> if (params.str(p.key).isBlank()) problems += "${p.label} can't be empty."
-            is ParamSpec.FlowRef -> if (params.str(p.key).isBlank()) problems += "Choose a Flow."
+            is ParamSpec.FlowRef -> if (p.required && params.str(p.key).isBlank()) problems += "Choose a Flow."
             is ParamSpec.IntSet -> if (params.intList(p.key).any { it !in p.min..p.max }) problems += "${p.label} has a value outside ${p.min}–${p.max}."
             is ParamSpec.Toggle, is ParamSpec.DateTime, is ParamSpec.Code, is ParamSpec.Logic -> Unit
         }
