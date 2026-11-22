@@ -43,7 +43,7 @@ class RegistryTest {
                 assertTrue("${s.id} needs an icon", s.iconKey.isNotBlank())
             }
         }
-        assertEquals(5, catalog.triggers.all().size)
+        assertEquals(5 + 15, catalog.triggers.all().size)
         // 10 older checks, 6 logic and date checks, and one generated check per device state provider.
         assertEquals(10 + 6 + com.androx.app.core.state.StateCatalog.providers.size, catalog.constraints.all().size)
         assertEquals(15 + 16 + 15, catalog.actions.all().size)

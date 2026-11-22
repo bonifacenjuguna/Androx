@@ -6,6 +6,7 @@ import android.content.Intent
 import com.androx.app.AndroxApp
 import com.androx.app.core.Event
 import com.androx.app.core.Value
+import com.androx.app.core.hub.FlowEvents
 import kotlinx.coroutines.launch
 
 /** Fires when a scheduled automation is due. */
@@ -20,7 +21,7 @@ class AlarmReceiver : BroadcastReceiver() {
             } finally {
                 // Arm the next occurrence whether or not the run worked.
                 container.automations.awaitLoaded()
-                container.scheduler.reschedule(container.automations.state.value)
+                container.rearmAlarms()
                 pending.finish()
             }
         }
@@ -33,11 +34,17 @@ class BootReceiver : BroadcastReceiver() {
         val container = (context.applicationContext as AndroxApp).container
         val pending = goAsync()
         val isBoot = intent.action == Intent.ACTION_BOOT_COMPLETED
+        val action = intent.action
         container.scope.launch {
             try {
                 container.automations.awaitLoaded()
-                container.scheduler.reschedule(container.automations.state.value)
+                container.rearmAlarms()
                 if (isBoot) container.runner.runOnBoot()
+                // "Time or time zone changed" works without the Listener: these broadcasts reach manifest receivers.
+                when (action) {
+                    Intent.ACTION_TIME_CHANGED -> container.bus.emit(FlowEvents.timeChanged("time"))
+                    Intent.ACTION_TIMEZONE_CHANGED -> container.bus.emit(FlowEvents.timeChanged("timezone"))
+                }
             } finally {
                 pending.finish()
             }
@@ -63,6 +70,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     ),
                     at = System.currentTimeMillis(),
                 )
+                container.bus.emit(FlowEvents.notificationButton(notification, button))
                 container.runner.runForEvent(flowId, event)
             } finally {
                 pending.finish()

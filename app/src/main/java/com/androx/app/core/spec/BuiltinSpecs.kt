@@ -38,7 +38,7 @@ object BuiltinSpecs {
         val triggers = SpecRegistry(SpecKind.TRIGGER)
         val constraints = SpecRegistry(SpecKind.CONSTRAINT)
         val actions = SpecRegistry(SpecKind.ACTION)
-        triggerSpecs().forEach(triggers::register)
+        (triggerSpecs() + EventTriggerSpecs.specs()).forEach(triggers::register)
         constraintSpecs().forEach(constraints::register)
         actionSpecs().forEach(actions::register)
         return SpecCatalog(triggers, constraints, actions)

@@ -37,6 +37,8 @@ data class AppSettings(
     val historyLimit: Int = 100,
     /** When the History tab was last opened; failures newer than this show as a badge. */
     val historySeenAt: Long = 0L,
+    /** The opt-in always-on Listener (spec §5.6). Off until the person turns it on. */
+    val listenerEnabled: Boolean = false,
 )
 
 class SettingsRepository(context: Context) {
@@ -56,6 +58,7 @@ class SettingsRepository(context: Context) {
         sort = enumPref("sort", AutomationSort.EDITED),
         historyLimit = prefs.getInt("history_limit", 100),
         historySeenAt = prefs.getLong("history_seen_at", 0L),
+        listenerEnabled = prefs.getBoolean("listener_enabled", false),
     )
 
     fun update(transform: (AppSettings) -> AppSettings) {
@@ -70,6 +73,7 @@ class SettingsRepository(context: Context) {
             .putString("sort", next.sort.name)
             .putInt("history_limit", next.historyLimit)
             .putLong("history_seen_at", next.historySeenAt)
+            .putBoolean("listener_enabled", next.listenerEnabled)
             .apply()
     }
 }

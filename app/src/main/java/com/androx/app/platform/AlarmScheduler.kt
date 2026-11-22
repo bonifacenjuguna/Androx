@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import com.androx.app.core.hub.TimedEntry
 import com.androx.app.model.Automation
 import com.androx.app.model.nextFire
 
@@ -35,6 +36,21 @@ class AlarmScheduler(private val context: Context) {
         val timed = automations.mapNotNull { a ->
             if (!a.enabled) null else a.trigger.nextFire(now)?.let { at -> a.id to at }
         }
+        val wantedIds = timed.map { it.first }.toSet()
+        (previous - wantedIds).forEach { cancel(it) }
+        for ((id, at) in timed) schedule(id, at)
+        prefs.edit().putStringSet(KEY_IDS, wantedIds).apply()
+    }
+
+    /**
+     * Arms one alarm per time-based trigger (a Flow can have several), keyed by the trigger's id. Alarms armed by older
+     * versions were keyed by the Flow's id, so the first call after updating cancels those and arms the new ones.
+     */
+    @Synchronized
+    fun rescheduleEntries(entries: List<TimedEntry>) {
+        val previous = prefs.getStringSet(KEY_IDS, emptySet()).orEmpty()
+        val now = System.currentTimeMillis()
+        val timed = entries.mapNotNull { e -> e.trigger.nextFire(now)?.let { at -> e.entryId to at } }
         val wantedIds = timed.map { it.first }.toSet()
         (previous - wantedIds).forEach { cancel(it) }
         for ((id, at) in timed) schedule(id, at)

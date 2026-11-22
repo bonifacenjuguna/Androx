@@ -85,6 +85,7 @@ fun sourceLabel(source: RunSource): String = when (source) {
     RunSource.MANUAL -> "Manual"
     RunSource.SCHEDULE -> "Scheduled"
     RunSource.BOOT -> "On start"
+    RunSource.EVENT -> "Event"
 }
 
 fun formatDuration(ms: Long): String = if (ms < 1000) "$ms ms" else String.format(java.util.Locale.US, "%.1f s", ms / 1000.0)

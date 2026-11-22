@@ -62,3 +62,26 @@ class ShadowValueStore(private val base: ValueStore) : ValueStore {
         removed += name
     }
 }
+
+/**
+ * Reports every real change to a variable (spec §15.2 "Variable changed"). Wrap the saved variables with it; simulations
+ * write to a [ShadowValueStore] on top, so they never raise events.
+ */
+class NotifyingValueStore(
+    private val inner: ValueStore,
+    private val onChange: (name: String, old: Value?, new: Value?) -> Unit,
+) : ValueStore {
+    override fun get(name: String): Value? = inner.get(name)
+
+    override fun set(name: String, value: Value) {
+        val old = inner.get(name)
+        inner.set(name, value)
+        if (old?.render() != value.render()) onChange(name, old, value)
+    }
+
+    override fun remove(name: String) {
+        val old = inner.get(name)
+        inner.remove(name)
+        if (old != null) onChange(name, old, null)
+    }
+}

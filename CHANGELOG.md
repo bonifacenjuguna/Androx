@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.0.2-alpha6 (Zip VI: trigger hub and the Listener)
+
+A Flow can now have several triggers, start from device events, and wait for a condition to hold. The current screens
+don't edit these yet (the new editors do); Flows with them run, and Trigger log lines are written, from this build on.
+
+**Trigger hub** (`core/hub`)
+- One event bus. Every event (system broadcasts, the Listener, notification buttons, finished Flows, changed variables)
+  enters it and the hub hands it to every enabled Flow with a matching trigger.
+- Per trigger: its own constraints, a **cooldown**, and a **hold time** ("battery below 20% for 5 minutes": a timer starts,
+  and the condition is checked again before running). A loop guard pauses a Flow that keeps starting itself.
+- **Trigger log:** every event the Listener receives is recorded with what became of it for each Flow, even when no Flow
+  ran (last 200, newest first).
+- **Test fire:** runs a Flow as if a trigger had just fired, with sample event values.
+- **Multiple timers per Flow:** every Schedule, Interval and Once trigger gets its own alarm. A finished Once turns off
+  only itself (and the Flow, if it was the last trigger).
+
+**15 new triggers**
+- Device events (need the Listener): Screen, Power, Battery Saver, Airplane mode, Headphones, Battery level (crossing a line),
+  Network (gained, lost, changed type), Ringer mode, Do Not Disturb, Phone unlocked.
+- No Listener needed: Time or time zone changed, Notification button, Flow finished or failed, Variable changed, Called by
+  another Flow.
+- Every event value is available in the Flow, for example `{battery.level}`, `{network.type}`, `{flow.status}`,
+  `{variable.new}`.
+
+**The Listener (opt-in)**
+- A quiet foreground service that exists only while you have allowed it in Settings AND an enabled Flow uses a trigger that
+  needs it. It registers receivers for just the event types in use and stops by itself when the last such Flow is turned off.
+  Its notification says what it is listening for.
+- The History tab shows "Event" for runs started by an event.
+
+- 43 new unit tests.
+
+Known gaps: the Settings switch and Trigger log screen arrive with the new Settings; variable edits made by hand in the
+Variables screen don't raise "Variable changed"; hold timers live in memory (they only matter while the Listener is on).
+
 ## 0.0.2-alpha5 (Zip V: device, apps and notification actions)
 
 New actions, all with settings, validation, summaries and permission explanations. The current screens don't offer them

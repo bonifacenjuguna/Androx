@@ -10,6 +10,28 @@ object TriggerIds {
     const val INTERVAL = "interval"
     const val ONCE = "once"
     const val BOOT = "boot"
+
+    // Events from the device (most need the opt-in Listener)
+    const val TIME_CHANGE = "time_change"
+    const val SCREEN = "screen"
+    const val POWER = "power"
+    const val BATTERY_LEVEL = "battery_level"
+    const val BATTERY_SAVER = "battery_saver"
+    const val AIRPLANE = "airplane"
+    const val HEADPHONES = "headphones"
+    const val NETWORK = "network"
+    const val RINGER = "ringer"
+    const val DND = "dnd"
+    const val UNLOCKED = "unlocked"
+
+    // Events from inside Androx
+    const val NOTIFICATION_BUTTON = "notification_button"
+    const val FLOW_FINISHED = "flow_finished"
+    const val VARIABLE_CHANGED = "variable_changed"
+    const val CALLED = "called"
+
+    /** The triggers that arrive as alarms rather than events. */
+    val TIMED = setOf(SCHEDULE, INTERVAL, ONCE)
 }
 
 object CheckIds {

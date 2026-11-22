@@ -292,7 +292,7 @@ data class Automation(
 )
 
 enum class ExecutionStatus { SUCCESS, FAILED, SKIPPED }
-enum class RunSource { MANUAL, SCHEDULE, BOOT }
+enum class RunSource { MANUAL, SCHEDULE, BOOT, EVENT }
 
 @Serializable
 data class ExecutionRecord(

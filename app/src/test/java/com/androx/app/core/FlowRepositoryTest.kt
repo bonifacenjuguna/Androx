@@ -142,4 +142,25 @@ class FlowRepositoryTest {
         assertTrue(again.recoveredFromBackup)
         assertEquals(listOf("a"), view2.state.value.map { it.id }) // the copy from before the last save
     }
+
+    @Test
+    fun aFinishedOnceTriggerTurnsOffOnlyItselfWhenOthersRemain() = runBlocking {
+        val repo = FlowRepository(dir(), scope)
+        val base = FlowMigration.migrate(auto("a"))
+        repo.update { it.copy(flows = listOf(base.copy(triggers = base.triggers + TriggerEntry("a-t1", TriggerIds.ONCE)))) }
+        repo.disableTrigger("a", "a-t1")
+        val flow = repo.get("a")!!
+        assertTrue(flow.enabled)
+        assertFalse(flow.triggers.first { it.id == "a-t1" }.enabled)
+        assertTrue(flow.triggers.first { it.id == "a-t0" }.enabled)
+    }
+
+    @Test
+    fun aFinishedOnceTriggerThatWasTheOnlyOneTurnsTheFlowOff() = runBlocking {
+        val repo = FlowRepository(dir(), scope)
+        val base = FlowMigration.migrate(auto("a").copy(trigger = Trigger.Once(5L)))
+        repo.update { it.copy(flows = listOf(base)) }
+        repo.disableTrigger("a", "a-t0")
+        assertFalse(repo.get("a")!!.enabled)
+    }
 }

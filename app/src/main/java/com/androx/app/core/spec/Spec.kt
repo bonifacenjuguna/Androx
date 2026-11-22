@@ -1,8 +1,10 @@
 package com.androx.app.core.spec
 
+import com.androx.app.core.Event
 import com.androx.app.core.has
 import com.androx.app.core.int
 import com.androx.app.core.intList
+import com.androx.app.core.state.DeviceStateReader
 import com.androx.app.core.str
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -229,7 +231,13 @@ data class Spec(
     val validate: (JsonObject) -> List<String> = { emptyList() },
     /** Set on entries kept only so older Flows keep working; pickers hide them and offer this id instead. */
     val supersededBy: String? = null,
+    /** Triggers only: does [Event] satisfy these settings? (for example "battery crossed below 20%"). */
+    val matches: (JsonObject, Event) -> Boolean = { _, _ -> true },
+    /** Triggers only: is the condition still true right now? Present means "only after holding for N minutes" is supported. */
+    val holdCheck: ((JsonObject, DeviceStateReader) -> Boolean)? = null,
 ) {
+    val supportsHold: Boolean get() = holdCheck != null
+
     fun problems(params: JsonObject): List<String> = validateParams(this.params, params) + validate(params)
 
     /** Where this entry stands on this device and build. */

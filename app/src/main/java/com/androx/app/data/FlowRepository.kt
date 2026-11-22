@@ -97,6 +97,26 @@ class FlowRepository(
         update { f -> f.copy(flows = f.flows.map { if (it.id == id) it.copy(enabled = enabled, updatedAt = now) else it }) }
     }
 
+    /**
+     * Turns one trigger off (a finished "Once"). The Flow itself is switched off too when that was its last enabled
+     * trigger, like a one-time automation always did.
+     */
+    suspend fun disableTrigger(flowId: String, entryId: String) {
+        val now = clock()
+        update { f ->
+            f.copy(
+                flows = f.flows.map { flow ->
+                    if (flow.id != flowId) {
+                        flow
+                    } else {
+                        val triggers = flow.triggers.map { if (it.id == entryId) it.copy(enabled = false) else it }
+                        flow.copy(triggers = triggers, enabled = flow.enabled && triggers.any { it.enabled }, updatedAt = now)
+                    }
+                },
+            )
+        }
+    }
+
     suspend fun moveToTrash(id: String) {
         val now = clock()
         update { f -> f.copy(flows = f.flows.map { if (it.id == id) Trash.moveToTrash(it, now) else it }) }
