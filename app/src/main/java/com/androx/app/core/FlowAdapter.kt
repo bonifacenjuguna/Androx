@@ -59,6 +59,8 @@ object FlowAdapter {
         TriggerIds.INTERVAL -> Trigger.Interval(t.params.int("minutes", 60), t.params.long("startAt", 0L))
         TriggerIds.ONCE -> Trigger.Once(t.params.long("atMillis", 0L))
         TriggerIds.BOOT -> Trigger.DeviceBoot
+        // A URL poll is armed like an interval; the runner fetches and compares when the alarm fires.
+        TriggerIds.POLL_URL -> Trigger.Interval(t.params.int("minutes", 15).coerceAtLeast(com.androx.app.model.MIN_INTERVAL_MINUTES), 0L)
         else -> Trigger.Manual
     }
 

@@ -137,6 +137,8 @@ data class Flow(
     /** The v0.0.1 workflow layout, kept untouched so nothing is lost by migration. */
     val legacyGraph: JsonElement? = null,
     val runOptions: RunOptions = RunOptions(),
+    /** Advanced: this Flow's own internet rule (spec §14.1). Null follows the global setting. */
+    val internet: com.androx.app.core.net.FlowInternet? = null,
     val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
     /** Set when the Flow is in Trash (spec §10). */

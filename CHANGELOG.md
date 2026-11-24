@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.0.2-alpha7 (Zip VII: the internet package)
+
+**One new dependency:** OkHttp 4.12.0 (see the build steps in the zip message). Nothing in Androx touches the network
+unless a Flow you made uses one of these actions AND the internet switch is on. It is off until you turn it on.
+
+**Access rules** (`core/net`, all unit tested)
+- Internet: Off, Ask (a notification asks once per new domain: Always allow / Block) or On. A one-tap **Block internet**
+  stops every request on the very next call.
+- Per Flow (advanced): inherit, allow, or block, plus an optional list of the only domains it may contact.
+- Wi-Fi only, an hourly request cap (a loop can't spam a server), HTTPS only by default, a blocklist, and an allowlist.
+- Local devices (Home Assistant, a NAS, a local Ollama) can be listed to allow plain http and a self-signed certificate.
+  Nothing else gets either.
+- Every request, ping and lookup goes through one gate and is written to a request log (URL with secrets hidden, status,
+  time, size, which Flow) kept for 14 days by default.
+
+**Secrets vault**
+- API keys and tokens are encrypted with a Keystore key that never leaves the phone. Screens only ever see the names.
+  Use `{secret.name}` in an HTTP header, address or message setting; the value is read for one request and hidden from
+  every log, error and Copy as cURL. The vault is never part of a backup; an optional passphrase-encrypted export
+  (PBKDF2 + AES-GCM) is the only way a copy can leave.
+
+**Actions (16)**
+- HTTP request (headers, JSON / form / raw body, bearer / basic / API-key auth from the vault, timeout, redirects, pick a
+  value from the JSON answer; gives `{http.status}`, `{http.body}`, `{http.json.…}`), Check if a site is up, Public IP,
+  DNS lookup, Check a port, Wake on LAN, Weather (Open-Meteo, no key), Ask AI (OpenAI, Anthropic, Gemini, local Ollama).
+- Message presets: Discord, Slack, Telegram, ntfy, Gotify, Pushover, IFTTT, Home Assistant, each with a helpful hint when the
+  service refuses.
+- **Import from cURL** and **Copy as cURL** (secrets hidden by default).
+
+**Trigger and state**
+- **Web address changes**: poll an address every few minutes and run when the page text, one JSON value, or the newest RSS /
+  Atom item changes. The first look only remembers the starting point.
+- New device state for constraints and `{values}`: Internet reachable, IP address.
+
+- 83 new unit tests.
+
+Left for later, with reasons: MQTT and email need their own libraries; file upload and download need the folder picker;
+the JavaScript `http` API comes with the Code editor zip.
+
 ## 0.0.2-alpha6 (Zip VI: trigger hub and the Listener)
 
 A Flow can now have several triggers, start from device events, and wait for a condition to hold. The current screens

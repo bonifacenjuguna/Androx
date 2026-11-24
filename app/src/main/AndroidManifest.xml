@@ -13,6 +13,10 @@
     <!-- Lets conditions ask whether the device is on Wi-Fi. Granted automatically; no network traffic is sent. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Androx makes no network request of its own. Only Flows you create and switch on can use the internet, through the
+         "Internet" setting, which is off until you turn it on. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- The opt-in Listener runs as a foreground service so device events (screen, power, network…) can be delivered. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -38,7 +42,10 @@
         </intent>
     </queries>
 
+    <!-- Plain http is needed to talk to local devices (Home Assistant, a NAS) the person adds under "local devices".
+         Androx's own rules still refuse http to every other address while "HTTPS only" is on, which is the default. -->
     <application
+        android:usesCleartextTraffic="true"
         android:name=".AndroxApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -74,6 +81,11 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Listens for device events such as screen, power, battery and network changes so that the user's own automations can react to them. It runs only when the user turns it on and at least one of their automations needs it." />
         </service>
+
+        <!-- Applies "Always allow / Block" from an internet permission question. Not exported. -->
+        <receiver
+            android:name=".platform.InternetAnswerReceiver"
+            android:exported="false" />
 
         <!-- Runs the Flow behind a notification button. Not exported: only Androx's own notifications can reach it. -->
         <receiver

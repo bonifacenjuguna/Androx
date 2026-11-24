@@ -71,6 +71,14 @@ interface ActionEnv {
     /** Sets a value that lives only until this run ends. */
     fun setLocal(name: String, value: Value)
 
+    /** The Flow being run, for the request log and the Flow's own internet rule. */
+    val flowId: String
+    val flowName: String
+    val flowInternet: com.androx.app.core.net.FlowInternet?
+
+    /** Like [render], and `{{secret.name}}` is filled from the vault. Every secret used is added to [used] so it can be redacted. */
+    fun renderWithSecrets(text: String, used: MutableSet<String>): String
+
     /** Registers [block] to run when the whole run ends, even if it fails or is stopped (newest first). Used to restore settings. */
     fun onRunEnd(description: String, block: () -> Unit)
 }
@@ -113,6 +121,7 @@ class FlowEngine(
     private val flowControl: FlowControl? = null,
     private val random: Random = Random.Default,
     private val system: SystemActions? = null,
+    private val net: com.androx.app.core.net.NetworkServices? = null,
 ) {
     companion object {
         const val MAX_DEPTH = 4
@@ -175,6 +184,18 @@ class FlowEngine(
 
         override fun setLocal(name: String, value: Value) {
             state.results[name] = value
+        }
+
+        override val flowId: String get() = flow.id
+        override val flowName: String get() = flow.name
+        override val flowInternet: com.androx.app.core.net.FlowInternet? get() = flow.internet
+
+        override fun renderWithSecrets(text: String, used: MutableSet<String>): String = TemplateEngine.render(text) { key ->
+            if (key.startsWith("secret.")) {
+                net?.secrets?.get(key.removePrefix("secret."))?.also { used += it }?.let { Value.Text(it) }
+            } else {
+                lookup(key)
+            }
         }
 
         override fun onRunEnd(description: String, block: () -> Unit) {
@@ -391,7 +412,7 @@ class FlowEngine(
     private val effects = setOf(
         OpIds.NOTIFY, OpIds.TOAST, OpIds.VIBRATE, OpIds.SPEAK, OpIds.CLIPBOARD, OpIds.PLAY_SOUND,
         OpIds.SET_VOLUME, OpIds.FLASHLIGHT, OpIds.RUN_SCRIPT, OpIds.FLOW_ENABLE,
-    ) + DEVICE_OP_IDS
+    ) + DEVICE_OP_IDS + INTERNET_OP_IDS
 
     private val actions: Map<String, ActionExecutor> = buildMap {
         put(OpIds.NOTIFY, ActionExecutor { p, env -> env.device.showNotification(env.render(p.str("title", "Androx")), env.render(p.str("message"))); null })
@@ -432,6 +453,7 @@ class FlowEngine(
         put(OpIds.SET_LOCAL, ActionExecutor { p, env -> setLocalValue(p, env) })
         put(OpIds.FLOW_ENABLE, ActionExecutor { p, env -> flowEnable(p, env) })
         putAll(deviceActions(system))
+        putAll(internetActions(net))
         putAll(extraActions)
     }
 

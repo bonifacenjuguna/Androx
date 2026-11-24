@@ -11,7 +11,7 @@ Each zip is an overlay: unzip over the repo root, commit, build. Every zip leave
 | **IV** | 3 | Device state providers (28) and generated constraints, typed comparisons, Flow-state / Started-by / date constraints, and the logic and data actions (For each, While, Try, Stop, Wait until, Calculate, Text, JSON, Date, Random, List, Dictionary, local values, switch Flows). |
 | **V** | 3 | Device, notification and permission actions (Do Not Disturb, brightness, notification builder with buttons, launch app, share, alarms, files) with their permission flows. |
 | **VI** | 3 | Trigger hub and Listener service: multiple triggers per Flow, cooldown, hold time, the ready-without-permission event triggers, Trigger log. |
-| VII | 4 | Internet package: gates, vault, HTTP, presets, polling, MQTT. |
+| **VII** | 4 | Internet package: gates, vault, HTTP, presets, polling, MQTT. |
 | VIII | 5 | Shell: bottom nav, drawer, search pill, global search, Pause. |
 | IX | 6 | Home. |
 | X | 7 | Flows page, Flow page, folders, Trash screens. |

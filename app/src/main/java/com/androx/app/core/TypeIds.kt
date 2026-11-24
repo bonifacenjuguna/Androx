@@ -29,9 +29,10 @@ object TriggerIds {
     const val FLOW_FINISHED = "flow_finished"
     const val VARIABLE_CHANGED = "variable_changed"
     const val CALLED = "called"
+    const val POLL_URL = "poll_url"
 
     /** The triggers that arrive as alarms rather than events. */
-    val TIMED = setOf(SCHEDULE, INTERVAL, ONCE)
+    val TIMED = setOf(SCHEDULE, INTERVAL, ONCE, POLL_URL)
 }
 
 object CheckIds {
@@ -88,6 +89,22 @@ object OpIds {
     const val DICT_OP = "dict_op"
     const val SET_LOCAL = "set_local"
     const val FLOW_ENABLE = "flow_enable"
+    const val HTTP = "http_request"
+    const val SITE_UP = "check_site_up"
+    const val PUBLIC_IP = "public_ip"
+    const val DNS_LOOKUP = "dns_lookup"
+    const val TCP_CHECK = "tcp_check"
+    const val WAKE_ON_LAN = "wake_on_lan"
+    const val WEATHER = "weather"
+    const val ASK_AI = "ask_ai"
+    const val DISCORD = "discord_message"
+    const val SLACK = "slack_message"
+    const val TELEGRAM = "telegram_message"
+    const val NTFY = "ntfy_message"
+    const val GOTIFY = "gotify_message"
+    const val PUSHOVER = "pushover_message"
+    const val IFTTT = "ifttt_trigger"
+    const val HOME_ASSISTANT = "home_assistant_service"
     const val RINGER_MODE = "ringer_mode"
     const val DND = "dnd"
     const val VOLUME_ADJUST = "volume_adjust"

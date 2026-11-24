@@ -38,7 +38,7 @@ object BuiltinSpecs {
         val triggers = SpecRegistry(SpecKind.TRIGGER)
         val constraints = SpecRegistry(SpecKind.CONSTRAINT)
         val actions = SpecRegistry(SpecKind.ACTION)
-        (triggerSpecs() + EventTriggerSpecs.specs()).forEach(triggers::register)
+        (triggerSpecs() + EventTriggerSpecs.specs() + InternetSpecs.triggers()).forEach(triggers::register)
         constraintSpecs().forEach(constraints::register)
         actionSpecs().forEach(actions::register)
         return SpecCatalog(triggers, constraints, actions)
@@ -222,7 +222,7 @@ object BuiltinSpecs {
         Choice(VariableMode.DELETE.name, "Remove"),
     )
 
-    private fun actionSpecs(): List<Spec> = baseActionSpecs() + logicActionSpecs() + deviceActionSpecs()
+    private fun actionSpecs(): List<Spec> = baseActionSpecs() + logicActionSpecs() + deviceActionSpecs() + InternetSpecs.actions()
 
     private fun baseActionSpecs(): List<Spec> = listOf(
         Spec(

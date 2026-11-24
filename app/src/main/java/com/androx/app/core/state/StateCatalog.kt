@@ -41,6 +41,8 @@ object StateCatalog {
             listOf("internet", "cellular", "data"),
         ),
         yesNo("network.metered", "Metered connection", "Whether the connection is metered (limited data).", SpecCategory.CONNECTIVITY, "cash", "metered", "not metered", listOf("data saver", "limited")),
+        yesNo("network.internet", "Internet reachable", "Whether the connection really reaches the internet.", SpecCategory.CONNECTIVITY, "web", "reachable", "not reachable", listOf("online", "offline", "connected to internet")),
+        StateProvider("network.ip", "IP address", "The phone's address on the current network. Handy as an \"am I at home?\" check.", SpecCategory.CONNECTIVITY, StateType.TEXT, "ip", synonyms = listOf("at home", "local address", "lan", "wifi address")),
         yesNo("network.vpn", "VPN", "Whether a VPN is connected.", SpecCategory.CONNECTIVITY, "vpn", "connected", "not connected"),
         yesNo("bluetooth.on", "Bluetooth", "Whether Bluetooth is turned on.", SpecCategory.CONNECTIVITY, "bluetooth", synonyms = listOf("bt")),
         yesNo("nfc.on", "NFC", "Whether NFC is turned on.", SpecCategory.CONNECTIVITY, "nfc"),

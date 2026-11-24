@@ -5,6 +5,7 @@ import com.androx.app.core.Flow
 import com.androx.app.core.RunLimits
 import com.androx.app.core.TriggerEntry
 import com.androx.app.core.TriggerIds
+import com.androx.app.core.str
 import com.androx.app.core.ConcurrencyPolicy
 import com.androx.app.core.engine.CheckContext
 import com.androx.app.core.engine.FlowEngine
@@ -16,6 +17,7 @@ import com.androx.app.core.hub.FlowEvents
 import com.androx.app.core.hub.HoldTracker
 import com.androx.app.core.hub.TriggerFirer
 import com.androx.app.core.hub.TriggerLogEntry
+import com.androx.app.core.net.PollRunner
 import com.androx.app.core.spec.SpecCatalog
 import com.androx.app.core.state.DeviceStateReader
 import com.androx.app.data.FlowRepository
@@ -43,8 +45,9 @@ class AutomationRunner(
     private val activity: FlowActivity,
     private val bus: EventBus,
     stateReader: DeviceStateReader,
-    triggerLog: (TriggerLogEntry) -> Unit,
+    private val triggerLog: (TriggerLogEntry) -> Unit,
     scope: CoroutineScope,
+    private val poller: PollRunner,
 ) {
     private val active: MutableSet<String> get() = activity.running
     private val queues = ConcurrentHashMap<String, Mutex>()
@@ -109,7 +112,22 @@ class AutomationRunner(
         val found = findTimed(id) ?: return null
         val (flow, entry) = found
         if (!flow.enabled || flow.inTrash || !entry.enabled) return null
-        val result = firer.fire(flow, entry, Event(entry.typeId, at = System.currentTimeMillis()), RunSource.SCHEDULE)
+        val result = if (entry.typeId == TriggerIds.POLL_URL) {
+            // "Web address changes": look at the address first, and only start the Flow when something changed.
+            val outcome = poller.check(flow, entry)
+            val event = outcome.event
+            if (event == null) {
+                if (!outcome.note.startsWith("no change")) {
+                    triggerLog(TriggerLogEntry(System.currentTimeMillis(), entry.typeId, "Polled ${entry.params.str("url")}", listOf("${flow.name}: ${outcome.note}")))
+                }
+                return null
+            }
+            val fired = firer.fire(flow, entry, event, RunSource.SCHEDULE)
+            triggerLog(TriggerLogEntry(System.currentTimeMillis(), entry.typeId, "Address changed", listOf("${flow.name}: ${fired.outcome}")))
+            fired
+        } else {
+            firer.fire(flow, entry, Event(entry.typeId, at = System.currentTimeMillis()), RunSource.SCHEDULE)
+        }
         // A one-time trigger has done its job: turn it off so it isn't offered as "scheduled" any more.
         if (entry.typeId == TriggerIds.ONCE) flows.disableTrigger(flow.id, entry.id)
         return result.record

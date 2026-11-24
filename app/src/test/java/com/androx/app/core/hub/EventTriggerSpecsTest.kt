@@ -21,11 +21,11 @@ class EventTriggerSpecsTest {
 
     @Test
     fun theEventTriggersAreRegisteredAndComplete() {
-        assertEquals(20, catalog.triggers.all().size)
+        assertEquals(21, catalog.triggers.all().size)
         for (s in catalog.triggers.all()) {
             assertTrue(s.id, s.name.isNotBlank() && s.description.isNotBlank() && s.iconKey.isNotBlank())
             s.summary(s.defaultParams()) // never throws on a fresh entry
-            if (s.id != TriggerIds.ONCE) assertTrue("${s.id}: ${s.problems(s.defaultParams())}", s.problems(s.defaultParams()).isEmpty())
+            if (s.id != TriggerIds.ONCE && s.id != TriggerIds.POLL_URL) assertTrue("${s.id}: ${s.problems(s.defaultParams())}", s.problems(s.defaultParams()).isEmpty())
         }
     }
 

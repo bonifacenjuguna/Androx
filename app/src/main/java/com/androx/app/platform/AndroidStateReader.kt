@@ -21,6 +21,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import com.androx.app.core.Value
 import com.androx.app.core.state.DeviceStateReader
+import java.net.Inet4Address
 
 /**
  * Reads the live value of every state provider that needs the Android APIs. Each read is isolated: a missing service,
@@ -44,6 +45,11 @@ class AndroidStateReader(private val context: Context) : DeviceStateReader {
         "network.type" -> Value.Text(networkType())
         "network.metered" -> connectivity?.let { Value.Bool(it.isActiveNetworkMetered) }
         "network.vpn" -> Value.Bool(hasTransport(NetworkCapabilities.TRANSPORT_VPN))
+        "network.internet" -> connectivity?.let { cm ->
+            val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return null)
+            Value.Bool(caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true)
+        }
+        "network.ip" -> localAddress()?.let { Value.Text(it) }
         "bluetooth.on" -> (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter?.let { Value.Bool(it.isEnabled) }
         "nfc.on" -> (context.getSystemService(Context.NFC_SERVICE) as? NfcManager)?.defaultAdapter?.let { Value.Bool(it.isEnabled) }
         "location.on" -> locationOn()?.let { Value.Bool(it) }
@@ -84,6 +90,13 @@ class AndroidStateReader(private val context: Context) : DeviceStateReader {
         val cm = connectivity ?: return false
         val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
         return caps.hasTransport(transport)
+    }
+
+    /** The phone's IPv4 address on the current network, or null when there isn't one. */
+    private fun localAddress(): String? {
+        val cm = connectivity ?: return null
+        val props = cm.getLinkProperties(cm.activeNetwork ?: return null) ?: return null
+        return props.linkAddresses.map { it.address }.firstOrNull { it is Inet4Address && !it.isLoopbackAddress }?.hostAddress
     }
 
     private fun networkType(): String = when {
